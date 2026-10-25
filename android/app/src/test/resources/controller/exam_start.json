@@ -1,0 +1,28 @@
+{
+  "attempt": {
+    "answers": {},
+    "durationMin": 10,
+    "examId": 1,
+    "passingPct": 60,
+    "questions": [
+      {
+        "id": 1,
+        "options": [
+          "Light",
+          "Sound"
+        ],
+        "prompt": "What do chloroplasts capture?",
+        "type": "mc"
+      },
+      {
+        "id": 2,
+        "options": [],
+        "prompt": "Which gas is released?",
+        "type": "text"
+      }
+    ],
+    "remainingSec": 600,
+    "title": "Photosynthesis check"
+  },
+  "ok": true
+}

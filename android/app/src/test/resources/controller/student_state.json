@@ -1,0 +1,62 @@
+{
+  "activeAttempt": null,
+  "availableWork": [
+    {
+      "durationMin": 10,
+      "id": 1,
+      "instructions": "Answer every question.",
+      "kind": "exam",
+      "passingPct": 60,
+      "questionCount": 2,
+      "status": "active",
+      "submitted": true,
+      "title": "Photosynthesis check"
+    }
+  ],
+  "me": {
+    "id": 1,
+    "name": "Ana Cruz",
+    "number": "001",
+    "section": "9-A"
+  },
+  "mySubmissions": [
+    {
+      "answersVisible": true,
+      "id": 1,
+      "passed": true,
+      "percent": 100,
+      "refId": 1,
+      "refType": "exam",
+      "score": 2,
+      "sessionId": 1,
+      "status": "graded",
+      "studentId": 1,
+      "studentName": "Ana Cruz",
+      "submittedMs": 290,
+      "timeout": false,
+      "title": "Photosynthesis check",
+      "total": 2
+    }
+  ],
+  "ok": true,
+  "resultsPolicy": {
+    "showCorrect": true
+  },
+  "session": {
+    "code": "SNT-VDU8",
+    "createdMs": 219,
+    "endedMs": 0,
+    "expiresInSec": 1799,
+    "id": 1,
+    "itemStatus": "active",
+    "joined": [
+      1
+    ],
+    "refId": 1,
+    "refType": "exam",
+    "startedMs": 225,
+    "state": "live",
+    "target": "9-A",
+    "title": "Photosynthesis check"
+  }
+}

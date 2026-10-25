@@ -1,0 +1,142 @@
+{
+  "activities": [],
+  "attendance": [],
+  "device": {
+    "firmware": "0.1.0-host-sim",
+    "freeHeap": 200000,
+    "ip": "127.0.0.1",
+    "name": "SNTCH-SIM",
+    "openSessions": 1,
+    "ssid": "SNTCH-CLASS",
+    "storageError": false,
+    "storageTotal": 1048576,
+    "storageUsed": 1612,
+    "students": 2,
+    "uptimeMs": 322
+  },
+  "events": [
+    {
+      "atMs": 290,
+      "text": "Ana Cruz submitted Photosynthesis check",
+      "tone": "ok"
+    },
+    {
+      "atMs": 258,
+      "text": "Ana Cruz started Photosynthesis check",
+      "tone": "info"
+    },
+    {
+      "atMs": 235,
+      "text": "Ana Cruz joined SNT-VDU8",
+      "tone": "ok"
+    },
+    {
+      "atMs": 225,
+      "text": "Session SNT-VDU8 started",
+      "tone": "ok"
+    },
+    {
+      "atMs": 219,
+      "text": "Session SNT-VDU8 created",
+      "tone": "info"
+    },
+    {
+      "atMs": 181,
+      "text": "Teacher signed in",
+      "tone": "info"
+    }
+  ],
+  "exams": [
+    {
+      "description": "",
+      "durationMin": 10,
+      "id": 1,
+      "instructions": "Answer every question.",
+      "kind": "exam",
+      "passingPct": 60,
+      "questionCount": 2,
+      "questions": [
+        {
+          "correct": 0,
+          "id": 1,
+          "keys": [],
+          "options": [
+            "Light",
+            "Sound"
+          ],
+          "prompt": "What do chloroplasts capture?",
+          "type": "mc"
+        },
+        {
+          "correct": 0,
+          "id": 2,
+          "keys": [
+            "Oxygen",
+            "O2"
+          ],
+          "options": [],
+          "prompt": "Which gas is released?",
+          "type": "text"
+        }
+      ],
+      "status": "active",
+      "target": "9-A",
+      "title": "Photosynthesis check"
+    }
+  ],
+  "ok": true,
+  "sessions": [
+    {
+      "code": "SNT-VDU8",
+      "createdMs": 219,
+      "endedMs": 0,
+      "expiresInSec": 1799,
+      "id": 1,
+      "itemStatus": "active",
+      "joined": [
+        1
+      ],
+      "refId": 1,
+      "refType": "exam",
+      "startedMs": 225,
+      "state": "live",
+      "target": "9-A",
+      "title": "Photosynthesis check"
+    }
+  ],
+  "settings": {
+    "showCorrect": true
+  },
+  "students": [
+    {
+      "id": 1,
+      "name": "Ana Cruz",
+      "number": "001",
+      "section": "9-A"
+    },
+    {
+      "id": 2,
+      "name": "Ben Lim",
+      "number": "002",
+      "section": "9-A"
+    }
+  ],
+  "submissions": [
+    {
+      "id": 1,
+      "passed": true,
+      "percent": 100,
+      "refId": 1,
+      "refType": "exam",
+      "score": 2,
+      "sessionId": 1,
+      "status": "graded",
+      "studentId": 1,
+      "studentName": "Ana Cruz",
+      "submittedMs": 290,
+      "timeout": false,
+      "title": "Photosynthesis check",
+      "total": 2
+    }
+  ]
+}

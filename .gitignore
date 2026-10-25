@@ -1,0 +1,25 @@
+# local build outputs
+.build/
+.sim-data/
+*.exe
+*.o
+
+# PlatformIO
+firmware/.pio/
+
+# Android / Gradle
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/local.properties
+*.apk
+
+# The earlier workspace the user asked not to touch
+Freebuff Creation/
+
+# editors / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

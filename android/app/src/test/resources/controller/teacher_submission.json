@@ -1,0 +1,39 @@
+{
+  "answers": {
+    "1": 0,
+    "2": "oxygen"
+  },
+  "id": 1,
+  "ok": true,
+  "passed": true,
+  "percent": 100,
+  "questions": [
+    {
+      "id": 1,
+      "options": [
+        "Light",
+        "Sound"
+      ],
+      "prompt": "What do chloroplasts capture?",
+      "type": "mc"
+    },
+    {
+      "id": 2,
+      "options": [],
+      "prompt": "Which gas is released?",
+      "type": "text"
+    }
+  ],
+  "refId": 1,
+  "refType": "exam",
+  "score": 2,
+  "sessionId": 1,
+  "status": "graded",
+  "studentId": 1,
+  "studentName": "Ana Cruz",
+  "submittedMs": 290,
+  "text": "",
+  "timeout": false,
+  "title": "Photosynthesis check",
+  "total": 2
+}

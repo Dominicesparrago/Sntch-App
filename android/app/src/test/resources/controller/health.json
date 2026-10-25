@@ -1,0 +1,14 @@
+{
+  "activeSessions": 1,
+  "deviceName": "SNTCH-SIM",
+  "firmware": "0.1.0-host-sim",
+  "freeHeap": 200000,
+  "ip": "127.0.0.1",
+  "ok": true,
+  "ssid": "SNTCH-CLASS",
+  "storageError": false,
+  "storageTotal": 1048576,
+  "storageUsed": 1612,
+  "students": 2,
+  "uptimeMs": 340
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Sntch" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F2F8F4</item>
+        <item name="android:statusBarColor">#10281D</item>
+        <item name="android:navigationBarColor">#F2F8F4</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

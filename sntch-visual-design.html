@@ -1,0 +1,2201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="SNTCH visual prototype. State is simulated and stored only in this browser. Not connected to any hardware or server.">
+<title>SNTCH Visual Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@600;700;800&display=swap">
+<script>
+/* Theme before first paint. Light is the default. "Match this device" leaves the attribute off, so the OS setting decides. */
+(function () {
+  var t = 'light';
+  try { var d = JSON.parse(localStorage.getItem('sntch.forest.visual.v2') || 'null'); if (d && d.settings && d.settings.theme) t = d.settings.theme; } catch (e) { /* storage blocked: keep light */ }
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
+<style>
+/* ===== 1. Forest Tech tokens (official palette, roles, radii) ===== */
+/* Light is the default. Dark applies when the viewer picks Dark, or picks Match this device and the OS is dark. */
+:root{
+  --deep-forest:#10281D;--forest:#14532D;--emerald:#059669;--mint:#34D399;--pale:#DCECE2;
+  --side-grad:linear-gradient(160deg,#0E2419 0%,#113B27 55%,#14532D 100%);
+  --side-text:#E7FFF0;--side-muted:#ACD5BC;--side-active:#166342;--side-active-text:#F2FFF6;--side-card:#174A31;
+  --logo-grad:linear-gradient(145deg,#34D399,#059669);
+  --ws:#F2F8F4;--card:#FFFFFF;--border:#DCEBE1;--text:#14291E;--muted:#60766A;--accent:#047857;--avatar:#C9F5DC;
+  --btn-grad:linear-gradient(110deg,#047857,#34D399);--btn-text:#052E16;
+  --track:#DEEEE4;--fill-grad:linear-gradient(90deg,#059669,#34D399);--highlight:#D8F4E3;
+  --warn-fg:#8A4B05;--warn-bg:#FDF1DC;--bad-fg:#9B1C1C;--bad-bg:#FBE7E7;--info-fg:#1E4E79;--info-bg:#E3EEF9;
+  --toast-bg:#10281D;--toast-fg:#E7FFF0;
+  --f-head:'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --f-body:'DM Sans',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r-sm:10px;--r:14px;--r-lg:18px;
+  --shadow:0 1px 2px rgba(16,40,29,.05),0 6px 16px rgba(16,40,29,.05);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ws:#0C1812;--card:#12241A;--border:#24402F;--text:#E4F5EA;--muted:#A3BFAF;--accent:#34D399;--avatar:#1E4D39;
+    --track:#1E3A2B;--highlight:#1A3B2A;--pale:#1A3B2A;--warn-bg:#3A2A10;--warn-fg:#F8D08A;--bad-bg:#3B1717;--bad-fg:#FBB4B4;
+    --info-bg:#132C44;--info-fg:#9CC8F0;--shadow:0 1px 2px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ws:#0C1812;--card:#12241A;--border:#24402F;--text:#E4F5EA;--muted:#A3BFAF;--accent:#34D399;--avatar:#1E4D39;
+  --track:#1E3A2B;--highlight:#1A3B2A;--pale:#1A3B2A;--warn-bg:#3A2A10;--warn-fg:#F8D08A;--bad-bg:#3B1717;--bad-fg:#FBB4B4;
+  --info-bg:#132C44;--info-fg:#9CC8F0;--shadow:0 1px 2px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+
+/* ===== 2. Base and typography (three font roles) ===== */
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--ws);color:var(--text);font:400 15px/1.5 var(--f-body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--card)}
+h1,h2,h3{font-family:var(--f-head);line-height:1.2;margin:0;letter-spacing:-.01em;color:var(--text)}
+h1{font-size:22px;font-weight:800}h2{font-size:17px;font-weight:700}h3{font-size:15.5px;font-weight:700}
+p{margin:0}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+summary{list-style:none}summary::-webkit-details-marker{display:none}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}.small{font-size:13.5px}.xs{font-size:12px}
+.strong{font-weight:700}.grow{flex:1 1 auto;min-width:0}.block{display:block}
+.mt{margin-top:12px}.pre{white-space:pre-wrap}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+.ico{width:20px;height:20px;flex:none}
+.sm-ico{width:14px;height:14px}
+[hidden]{display:none!important}
+
+/* ===== 3. App shell: sidebar, topbar, bottom nav ===== */
+.app{min-height:100vh}
+.shell{min-width:0;display:flex;flex-direction:column;min-height:100vh}
+.main{flex:1;padding-block:16px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));min-width:0;outline:none;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-content:start}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding-block:10px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;position:relative;z-index:40}
+.sidebar{position:fixed;inset:0 auto 0 0;width:272px;max-width:86vw;padding-left:env(safe-area-inset-left, 0px);background:var(--side-grad);color:var(--side-text);transform:translateX(-100%);visibility:hidden;transition:transform .25s ease,visibility .25s;z-index:60;display:flex;flex-direction:column;overflow-y:auto;box-shadow:8px 0 24px rgba(0,0,0,.2)}
+.nav-open .sidebar{transform:none;visibility:visible}
+.backdrop{display:none;position:fixed;inset:0;background:rgba(7,22,15,.45);z-index:55}
+.nav-open .backdrop{display:block}
+.brand{display:flex;align-items:center;gap:12px;padding:18px 18px 14px}
+.logo{width:40px;height:40px;border-radius:12px;background:var(--logo-grad);display:grid;place-items:center;color:#052E16;flex:none;box-shadow:0 6px 16px rgba(5,150,105,.35)}
+.logo.sm{width:30px;height:30px;border-radius:9px}
+.logo .ico{width:22px;height:22px}
+.brand-text{flex:1;min-width:0}
+.brand-mini{display:flex;align-items:center;gap:8px}
+.wordmark{display:block;font:800 20px/1.1 var(--f-head);letter-spacing:.04em;color:#F2FFF6}
+.wordmark.dark{color:var(--text);font-size:17px}
+.brand small{display:block;font-size:12px;color:var(--side-muted)}
+.menu-close{color:var(--side-text)}
+.snav{padding:4px 12px}
+.nav-group{margin-bottom:6px}
+.nav-label{font:600 11px var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--side-muted);padding:10px 10px 6px}
+.snav a{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border-radius:12px;color:var(--side-text);font-weight:500;text-decoration:none}
+.snav a:hover{background:rgba(172,213,188,.12);text-decoration:none}
+.snav a[aria-current="page"]{background:var(--side-active);color:var(--side-active-text);font-weight:600}
+.side-card{margin:auto 12px 16px;background:var(--side-card);border-radius:var(--r);padding:14px;color:var(--side-text)}
+.side-card .xs{color:var(--side-muted)}
+.side-status{font-weight:600;display:flex;align-items:center;gap:8px;margin:6px 0}
+.side-muted{color:var(--side-muted)!important}
+.side-dot{width:9px;height:9px;border-radius:50%;background:var(--mint);display:inline-block;flex:none}
+.side-dot-sm{width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block;flex:none}
+.side-dot-sm.s-disconnected{background:var(--bad-fg)}
+.side-dot-sm.s-unavailable{background:var(--warn-fg)}
+.side-dot-sm.s-syncing{background:var(--info-fg)}
+.page-title{flex:1 1 140px;min-width:0}
+.page-title h1{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.page-title p{display:none}
+.menu-btn{display:grid}
+.search{order:10;flex:1 1 100%;position:relative}
+.search-field{display:flex;align-items:center;gap:8px;position:relative;background:var(--ws);border:1px solid var(--border);border-radius:12px;padding:0 12px;min-height:44px;color:var(--muted)}
+.search-field .input{border:0;background:transparent;padding:8px 0;min-height:40px;flex:1;min-width:0;outline:none;box-shadow:none}
+.search-field:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(52,211,153,.3)}
+.search-results{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.15);padding:6px;z-index:70;max-height:60vh;overflow:auto}
+.sr-item{display:flex;flex-direction:column;padding:10px 12px;border-radius:10px;color:var(--text);text-decoration:none}
+.sr-item:hover,.sr-item:focus-visible{background:var(--highlight);text-decoration:none}
+.role-wrap{order:11;flex:1 1 100%;display:flex}
+.role-wrap .seg{width:100%}
+.role-wrap .seg button{flex:1;justify-content:center}
+.status-chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 10px;border-radius:99px;background:var(--highlight);color:var(--accent);font:600 12.5px var(--f-body);text-decoration:none;max-width:100%}
+.status-chip .chip-text{display:none}
+.status-chip:hover{text-decoration:none}
+.bottomnav{display:none}
+.role-student .bottomnav{display:flex;position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:480px;background:var(--card);border-top:1px solid var(--border);padding-block:6px calc(6px + env(safe-area-inset-bottom, 0px));padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));z-index:45;justify-content:space-around;gap:4px;filter:drop-shadow(0 -6px 14px rgba(16,40,29,.15)) drop-shadow(0 -1px 3px rgba(16,40,29,.12))}
+.bottomnav a{flex:1;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;font-weight:600;color:var(--muted);border-radius:12px;text-decoration:none}
+.bottomnav a:hover{background:var(--highlight);text-decoration:none}
+.bottomnav a[aria-current="page"]{color:var(--accent);background:var(--highlight)}
+.bottomnav a:active{transform:scale(.94)}
+.nav-hump{position:absolute;left:50%;transform:translateX(-50%);top:-28px;width:176px;height:28px;overflow:visible;fill:var(--card);stroke:var(--border);stroke-width:1;pointer-events:none}
+.nav-hump path{vector-effect:non-scaling-stroke}
+.nav-slot{flex:0 0 76px;display:flex;justify-content:center;align-items:flex-start}
+.bottomnav .nav-scan{position:relative;z-index:1;flex:none;width:64px;height:64px;min-height:0;margin-top:-24px;border-radius:50%;display:grid;place-items:center;padding:0;background:var(--btn-grad);color:#fff;box-shadow:0 0 0 5px var(--card),0 6px 14px rgba(4,120,87,.28);text-decoration:none}
+.bottomnav .nav-scan:hover{background:var(--btn-grad);filter:brightness(1.05);text-decoration:none}
+.bottomnav .nav-scan[aria-current="page"]{background:var(--btn-grad);box-shadow:0 0 0 5px var(--card),0 0 0 7px var(--accent)}
+.bottomnav .nav-scan .ico{width:30px;height:30px}
+.scan-card{display:grid;gap:14px;justify-items:center;text-align:center}
+.viewfinder{position:relative;width:min(300px,100%);aspect-ratio:1/1;border-radius:var(--r-lg);background:var(--side-grad);overflow:hidden;display:grid;place-items:center;box-shadow:var(--shadow)}
+.scan-glyph .ico{width:56px;height:56px;color:var(--mint);opacity:.55}
+.corner{position:absolute;width:48px;height:48px;border:0 solid var(--mint)}
+.corner.tl{top:20px;left:20px;border-top-width:4px;border-left-width:4px;border-top-left-radius:12px}
+.corner.tr{top:20px;right:20px;border-top-width:4px;border-right-width:4px;border-top-right-radius:12px}
+.corner.bl{bottom:20px;left:20px;border-bottom-width:4px;border-left-width:4px;border-bottom-left-radius:12px}
+.corner.br{bottom:20px;right:20px;border-bottom-width:4px;border-right-width:4px;border-bottom-right-radius:12px}
+.scan-line{position:absolute;left:14%;right:14%;top:50%;height:2px;background:var(--mint);box-shadow:0 0 12px var(--mint);animation:scanline 2.4s ease-in-out infinite alternate}
+@keyframes scanline{from{top:24%}to{top:76%}}
+.role-student .main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+.exam-focus .bottomnav{display:none}
+.exam-focus .main{padding-bottom:16px}
+.role-student .shell{max-width:480px;margin:0 auto;width:100%}
+.role-student .sidebar{display:none}
+.menu-wrap{position:relative;display:inline-block}
+.menu-wrap>summary{position:relative}
+.menu-panel{position:absolute;right:0;top:calc(100% + 8px);min-width:230px;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:6px;z-index:70}
+.menu-panel.wide{width:min(340px,86vw)}
+.menu-item{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0 12px;border:0;background:transparent;border-radius:10px;text-align:left;font-weight:600;color:var(--text)}
+.menu-item:hover{background:var(--highlight)}
+.menu-item.danger{color:var(--bad-fg)}
+.menu-item .ico{width:18px;height:18px}
+.menu-head{padding:8px 10px;font-size:14px}
+.count-dot{position:absolute;top:2px;right:2px;min-width:18px;height:18px;border-radius:99px;background:var(--emerald);color:#fff;font:700 11px/18px var(--f-body);text-align:center;padding:0 4px}
+.notif{list-style:none;margin:0;padding:4px 8px 8px;max-height:320px;overflow:auto}
+.notif li{display:flex;justify-content:space-between;gap:10px;padding:9px 6px;border-bottom:1px solid var(--border);font-size:13.5px}
+
+/* ===== 4. Buttons, badges, cards, forms ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);font:600 15px/1 var(--f-body);text-decoration:none;transition:background .15s,box-shadow .15s,transform .05s;white-space:nowrap}
+.btn:hover{background:var(--highlight);text-decoration:none}
+.btn:active{transform:scale(.98)}
+.btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn:disabled{opacity:.5;cursor:not-allowed;background:var(--track);transform:none}
+.btn svg{width:18px;height:18px}
+.btn-primary{background:var(--btn-grad);color:var(--btn-text);border-color:transparent;box-shadow:0 4px 14px rgba(4,120,87,.22)}
+.btn-primary:hover{filter:brightness(1.04);background:var(--btn-grad)}
+.btn-primary:disabled{background:var(--track);color:var(--muted);box-shadow:none}
+.btn-danger{color:var(--bad-fg);border-color:var(--bad-bg)}
+.btn-danger-solid{background:#9B1C1C;color:#fff;border-color:transparent}
+.btn-sm{min-height:36px;padding:0 12px;font-size:14px;border-radius:10px}
+.btn-sm svg{width:16px;height:16px}
+.btn-lg{min-height:52px;font-size:16px;padding:0 20px}
+.btn.is-loading{pointer-events:none}
+.btn.is-loading::after{content:"";width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite}
+.icon-btn{width:44px;height:44px;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--muted);display:inline-grid;place-items:center;text-decoration:none;flex:none}
+.icon-btn:hover{background:var(--highlight);color:var(--accent);text-decoration:none}
+.icon-btn.sm{width:36px;height:36px;border-radius:10px}
+.icon-btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn-row.btn-grid{display:grid;grid-template-columns:1fr 1fr}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:8px;background:var(--track);font-size:12.5px;font-weight:600;color:var(--muted);border:0}
+button.tag{cursor:pointer}
+.tag-type{font:600 11.5px var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+.avatar{width:40px;height:40px;border-radius:50%;background:var(--avatar);color:var(--accent);display:inline-grid;place-items:center;font:700 14px var(--f-head);cursor:pointer;flex:none;border:0}
+.avatar.lg{width:56px;height:56px;font-size:18px}
+.person{display:flex;gap:12px;align-items:center}
+.badge{display:inline-flex;align-items:center;gap:5px;font:600 12px/1 var(--f-body);padding:6px 9px;border-radius:99px;white-space:nowrap;background:var(--track);color:var(--muted)}
+.badge .ico{width:13px;height:13px}
+.b-ok{background:var(--highlight);color:var(--accent)}
+.b-warn{background:var(--warn-bg);color:var(--warn-fg)}
+.b-bad{background:var(--bad-bg);color:var(--bad-fg)}
+.b-info{background:var(--info-bg);color:var(--info-fg)}
+.b-muted{background:var(--track);color:var(--muted)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;margin-top:6px;background:var(--muted)}
+.dot.t-ok{background:var(--emerald)}.dot.t-warn{background:#C98A1B}.dot.t-info{background:#3B82C4}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:16px;min-width:0}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.card-head>div:first-child{min-width:0}
+.card-head h3{font-size:16px}
+.card.stat{display:grid;gap:4px}
+.stat-top{display:flex;align-items:center;gap:8px}
+.stat .label{font:600 13px var(--f-body);color:var(--muted)}
+.stat .value{font:800 26px/1.1 var(--f-head);margin-top:4px;font-variant-numeric:tabular-nums;color:var(--text)}
+.stat .sub{font-size:12.5px;color:var(--muted)}
+.chip-ico{width:30px;height:30px;border-radius:9px;background:var(--highlight);color:var(--accent);display:inline-grid;place-items:center;flex:none}
+.chip-ico .ico{width:17px;height:17px}
+.grid{display:grid;gap:14px;grid-template-columns:1fr;min-width:0}
+.grid>*{min-width:0}
+.grid.stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+.progress{height:8px;border-radius:99px;background:var(--track);overflow:hidden}
+.progress>span{display:block;height:100%;border-radius:inherit;background:var(--fill-grad);transition:width .4s ease}
+.list{list-style:none;margin:0;padding:0}
+.list-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.list-item:last-child{border-bottom:0}
+.stack-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.cards-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.row-between{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.code{font:500 15px var(--f-mono);letter-spacing:.12em;background:var(--highlight);border:1px dashed var(--accent);border-radius:10px;padding:6px 10px;color:var(--accent);display:inline-block}
+.code-sm{font-size:12.5px;padding:3px 7px}
+.code-lg{font-size:24px;padding:10px 14px;margin:6px 0 10px}
+.facts{display:grid;gap:10px;margin:12px 0 0}
+.facts>div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding-bottom:8px}
+.facts dt{color:var(--muted);font-size:13.5px}
+.facts dd{margin:0;font-weight:600;text-align:right}
+.notice{display:flex;gap:10px;align-items:flex-start;border-radius:12px;padding:12px 14px;background:var(--pale);color:var(--text);font-size:14px}
+.notice>div{min-width:0}
+.notice .ico{margin-top:1px}
+.notice.n-info{background:var(--info-bg);color:var(--info-fg)}
+.notice.n-warn{background:var(--warn-bg);color:var(--warn-fg)}
+.notice.n-bad{background:var(--bad-bg);color:var(--bad-fg)}
+.notice.n-ok{background:var(--highlight);color:var(--accent)}
+.empty{text-align:center;padding:26px 14px;display:grid;justify-items:center;gap:6px;color:var(--muted)}
+.empty h3{color:var(--text)}
+.empty .ring{width:52px;height:52px;border-radius:50%;background:var(--highlight);color:var(--accent);display:grid;place-items:center;margin-bottom:4px}
+.empty .ico{width:24px;height:24px}
+.empty-cell{padding:0!important}
+.skel{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--track),var(--card),var(--track));background-size:200% 100%;animation:shimmer 1.2s infinite;margin-top:8px}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes sheet{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+.back{display:inline-flex;align-items:center;gap:4px;font-weight:600;min-height:36px;width:max-content}
+.page-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.page-head h1{font-size:21px;margin-top:2px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.toolbar .select,.toolbar .input{width:auto;min-width:0}
+.toolbar .search-field{min-width:200px;flex:1 1 220px}
+.seg{display:inline-flex;background:var(--track);border-radius:12px;padding:4px;gap:4px;flex-wrap:wrap}
+.seg button{min-height:38px;padding:0 12px;border:0;background:transparent;border-radius:9px;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;gap:6px;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--text);box-shadow:var(--shadow)}
+.seg button .ico{width:16px;height:16px}
+.quick{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.quick .btn{justify-content:flex-start}
+.att-grid{display:grid;gap:14px}
+.att-item{display:grid;gap:8px}
+.att-row{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.att-row:last-child{border-bottom:0}
+.att-seg{display:flex;gap:6px;flex-wrap:wrap}
+.att-seg button{min-height:44px;min-width:78px;padding:0 10px;border:1px solid var(--border);border-radius:12px;background:var(--card);font-weight:600;font-size:14px;color:var(--muted)}
+.att-seg button[aria-pressed="true"]{background:var(--highlight);color:var(--accent);border-color:var(--emerald)}
+.att-seg button:hover{background:var(--highlight)}
+.dist{display:flex;align-items:flex-end;gap:10px;height:170px;padding-top:8px}
+.dist-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px}
+.dist-bar{width:100%;max-width:56px;background:var(--fill-grad);border-radius:8px 8px 4px 4px;min-height:3px}
+.dev-hero{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.dev-ico{width:48px;height:48px;border-radius:14px;background:var(--logo-grad);color:#052E16;display:grid;place-items:center;flex:none}
+.join-box{border:1px dashed var(--accent);border-radius:14px;padding:14px;text-align:center;background:var(--ws)}
+.steps{margin:12px 0 0 18px;padding:0}
+.steps li{margin:4px 0}
+.qr-box{width:112px;height:112px;margin:12px auto 4px;border-radius:12px;border:2px dashed var(--border);display:grid;place-items:center;background:repeating-linear-gradient(45deg,var(--track) 0 6px,var(--card) 6px 12px);font:600 11px var(--f-body);color:var(--muted);text-align:center;padding:6px}
+.mini-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;text-align:center}
+.mini-stats div{background:var(--ws);border-radius:12px;padding:10px 6px;display:grid;gap:2px}
+.mini-stats b{font-size:18px}
+.prog-cell{display:flex;align-items:center;gap:8px;min-width:120px}
+.prog-cell .progress{flex:1}
+.qitem{border:1px solid var(--border);border-radius:14px;padding:12px;display:grid;gap:8px;background:var(--card)}
+.qhead{display:flex;align-items:center;gap:8px}
+.qnum{width:28px;height:28px;border-radius:8px;background:var(--track);display:grid;place-items:center;font-weight:600}
+.qopts{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.qopts li{display:flex;align-items:center;gap:8px;font-size:14.5px}
+.qopts li.is-correct{color:var(--accent);font-weight:600}
+.opt-letter{width:26px;height:26px;border-radius:8px;background:var(--track);display:inline-grid;place-items:center;font:600 12.5px var(--f-mono);flex:none;color:var(--text)}
+.qactions{justify-content:flex-end}
+.opt-edit{display:grid;grid-template-columns:auto auto 1fr;gap:8px;align-items:center;margin-bottom:8px}
+.opt-edit input[type=radio]{width:20px;height:20px;accent-color:var(--accent)}
+.plain{border:0;padding:0;margin:0;min-width:0}
+.plain:disabled{opacity:.6}
+.fieldset{border:0;padding:0;margin:0 0 12px;min-width:0}
+.fieldset legend{padding:0;margin-bottom:6px}
+.field{display:grid;gap:6px;margin-bottom:14px;min-width:0}
+.field .label,.label{font:600 14px var(--f-body)}
+.hint{font-size:12.5px;color:var(--muted)}
+.input,.select,.textarea{width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--card);color:var(--text);font-size:16px}
+.input:disabled,.select:disabled,.textarea:disabled{opacity:.6}
+.textarea{min-height:100px;resize:vertical;line-height:1.5}
+.input:focus,.select:focus,.textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(52,211,153,.3)}
+[aria-invalid="true"]{border-color:var(--bad-fg)!important}
+.field-error{font-size:13px;color:var(--bad-fg);font-weight:600}
+.row-2{display:grid;gap:12px}
+.check{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:500}
+.check input{width:20px;height:20px;accent-color:var(--accent);flex:none}
+.disabled-row{opacity:.6}
+.hint-indent{margin:-4px 0 10px 30px}
+.conn{display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;font-size:13.5px}
+.conn .side-dot-sm{background:var(--emerald)}
+
+/* ===== 5. Tables (cards on mobile) ===== */
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+@media (min-width:720px){.table-wrap{overflow-x:auto}}
+.data-table{width:100%;border-collapse:collapse}
+.data-table th{font:600 12px var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:12px 14px;background:var(--ws);border-bottom:1px solid var(--border)}
+.data-table td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+.data-table tbody tr:last-child td{border-bottom:0}
+.data-table tbody tr:hover{background:var(--highlight)}
+.data-table td.actions{white-space:nowrap}
+.data-table td.actions>*{margin-right:4px}
+.data-table .cell-main a{font-weight:700}
+.cell-main .xs{display:block}
+@media (max-width:1199px){
+  .data-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .data-table,.data-table tbody,.data-table tr,.data-table td{display:block;width:100%}
+  .table-wrap{background:transparent;border:0;overflow:visible}
+  .data-table tr{background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin:0 0 10px;padding:6px 12px;box-shadow:var(--shadow)}
+  .data-table tr:has(>td.empty-cell){background:transparent;border:0;box-shadow:none;padding:0}
+  .data-table tbody tr:hover{background:var(--card)}
+  .data-table td{display:flex;justify-content:space-between;align-items:center;gap:12px;border:0;padding:7px 0;text-align:right;min-width:0}
+  .data-table td::before{content:attr(data-label);font-size:12px;color:var(--muted);font-weight:600;text-align:left;flex:none}
+  .data-table td.cell-main{display:block;text-align:left;font-size:16px}
+  .data-table td.cell-main::before{content:none}
+  .data-table td.actions{justify-content:flex-end;flex-wrap:wrap}
+  .data-table td.actions::before{content:none}
+  .data-table td.empty-cell{display:block;text-align:left;padding:0}
+  .data-table td.empty-cell::before{content:none}
+  .data-table td:empty{display:none}
+}
+
+/* ===== 6. Modal, toast ===== */
+#modal-root{position:fixed;inset:0;z-index:80;display:grid;place-items:end center}
+.modal-scrim{position:absolute;inset:0;background:rgba(7,22,15,.5)}
+.modal{position:relative;background:var(--card);color:var(--text);width:100%;max-height:92vh;display:flex;flex-direction:column;border-radius:20px 20px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.25);animation:sheet .2s ease;min-width:0}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border)}
+.modal-head h2{font-size:17px;min-width:0}
+.modal-body{padding:16px;overflow:auto;min-height:0}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--border)}
+.toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));width:min(440px,calc(100% - 32px));display:grid;gap:8px;z-index:90;pointer-events:none}
+.role-student .toasts{bottom:calc(88px + env(safe-area-inset-bottom))}
+.toast{pointer-events:auto;display:flex;gap:10px;align-items:flex-start;background:var(--toast-bg);color:var(--toast-fg);border-radius:12px;padding:12px 14px;box-shadow:0 10px 24px rgba(0,0,0,.25);font-size:14.5px;animation:sheet .2s ease}
+.toast .ico{color:var(--mint);margin-top:1px}
+.toast.t-warn .ico{color:#F5C26B}
+.toast.t-error .ico{color:#F2A1A1}
+.toast.t-info .ico{color:#93C5FD}
+
+/* ===== 7. Teacher-specific pieces ===== */
+.dist-wrap{display:grid}
+.review-row{padding:12px 0;border-bottom:1px solid var(--border);display:grid;gap:4px}
+.review-row:last-child{border-bottom:0}
+
+/* ===== 8. Student-specific pieces ===== */
+.hello{display:grid;gap:4px;padding:4px 2px}
+.hello h1{font-size:24px}
+.feature{background:var(--side-grad);color:var(--side-text);border-radius:var(--r-lg);padding:18px;display:grid;gap:8px;box-shadow:0 10px 24px rgba(16,40,29,.22)}
+.feature h2{color:#F2FFF6;font-size:19px}
+.feature .small,.feature .xs{color:var(--side-muted)}
+.feature .btn{background:var(--btn-grad);color:var(--btn-text);border-color:transparent;justify-self:start}
+.feature .btn-ghost-light{background:transparent;color:var(--side-text);border-color:rgba(172,213,188,.45)}
+.item-card{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;flex-wrap:wrap;box-shadow:var(--shadow)}
+.item-card .grow{min-width:160px}
+.item-card h3{margin-top:2px}
+.section-title{font-size:16px;margin-top:6px}
+.exam-top{position:sticky;top:env(safe-area-inset-top, 0px);z-index:30;background:var(--card);border-bottom:1px solid var(--border);padding:10px 12px;display:flex;gap:10px;align-items:center}
+.timer{font:600 18px var(--f-mono);font-variant-numeric:tabular-nums;padding:7px 10px;border-radius:10px;background:var(--highlight);color:var(--accent);min-width:78px;text-align:center}
+.timer.low{background:var(--warn-bg);color:var(--warn-fg)}
+.exam-body{display:grid;gap:14px;padding:14px 0}
+.qnav{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:8px}
+.qnav button{min-height:44px;border-radius:12px;border:1px solid var(--border);background:var(--card);font:600 15px var(--f-body);display:inline-flex;align-items:center;justify-content:center;gap:4px;color:var(--text)}
+.qnav button.answered{background:var(--highlight);border-color:var(--emerald);color:var(--accent)}
+.qnav button[aria-current="step"]{box-shadow:0 0 0 2px var(--accent)}
+.qcard{display:grid;gap:12px}
+.qprompt{font-size:18px;line-height:1.35;outline:none}
+.opt{display:flex;align-items:center;gap:12px;min-height:52px;padding:12px 14px;border:1.5px solid var(--border);border-radius:14px;background:var(--card);cursor:pointer;font-size:16px}
+.opt:hover{border-color:var(--mint);background:var(--highlight)}
+.opt input{width:20px;height:20px;accent-color:var(--accent);flex:none}
+.opt:has(input:checked){border-color:var(--accent);background:var(--highlight)}
+.exam-nav{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.exam-nav .btn{flex:1 1 130px}
+.review-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.review-item{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;border:1px solid var(--border);background:var(--card);border-radius:14px;padding:12px}
+.result-hero{text-align:center;display:grid;justify-items:center;gap:8px}
+.score-big{font:800 44px/1 var(--f-head);font-variant-numeric:tabular-nums}
+.profile-head{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+
+/* ===== 9. Responsive: 720px tablet, 1024px desktop ===== */
+@media (min-width:720px){
+  #modal-root{place-items:center}
+  .modal{width:min(560px,92vw);border-radius:20px;max-height:86vh}
+  .modal-lg{width:min(700px,94vw)}
+  .search{flex:0 1 300px;order:0}
+  .role-wrap{order:0;flex:none;width:auto}
+  .role-wrap .seg{width:auto}
+  .role-wrap .seg button{flex:none}
+  .page-title p{display:block;margin-top:2px}
+  .create-label{display:inline}
+  .status-chip .chip-text{display:inline}
+  .grid.stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid.cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .row-2{grid-template-columns:1fr 1fr}
+  .main{padding-block:20px;padding-left:max(20px, env(safe-area-inset-left, 0px));padding-right:max(20px, env(safe-area-inset-right, 0px))}
+  .table-wrap{overflow-x:auto}
+  .topbar{padding-block:12px;padding-left:max(20px, env(safe-area-inset-left, 0px));padding-right:max(20px, env(safe-area-inset-right, 0px))}
+  .page-title h1{font-size:20px}
+  .role-student .main{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+}
+@media (min-width:1024px){
+  .app{display:grid;grid-template-columns:272px minmax(0,1fr)}
+  .role-student .app{display:block}
+  .sidebar{position:sticky;top:0;height:100vh;transform:none;visibility:visible;box-shadow:none;width:auto;max-width:none}
+  .menu-btn,.menu-close,.backdrop{display:none!important}
+  .topbar{position:sticky;top:env(safe-area-inset-top, 0px)}
+  .grid.cards{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .grid.two.wide{grid-template-columns:2fr 1fr}
+  .role-student .shell{max-width:480px}
+}
+/* ===== Scrollbars: hidden for phone-like preview (scrolling still works) ===== */
+*{scrollbar-width:none}
+*::-webkit-scrollbar{display:none;width:0;height:0}
+*::-webkit-scrollbar-corner{display:none}
+</style>
+</head>
+<body class="role-teacher">
+<div class="app">
+  <aside class="sidebar" id="sidebar" aria-label="Primary navigation"></aside>
+  <div class="shell">
+    <header class="topbar" id="topbar"></header>
+    <main class="main" id="main" tabindex="-1"></main>
+  </div>
+</div>
+<nav class="bottomnav" id="bottomnav" aria-label="Student navigation"></nav>
+<div class="backdrop" data-action="nav-close" aria-hidden="true"></div>
+<div id="modal-root" hidden></div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<script>
+'use strict';
+/* ===== 1. Helpers ===== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const z = (n, w = 2) => String(n).padStart(w, '0');
+const MIN = 60000, HOUR = 3600000, DAY = 86400000;
+let uidN = 1;
+const uid = p => `${p}-${Date.now().toString(36)}${(uidN++).toString(36)}`;
+const dayKey = ts => { const d = new Date(ts); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`; };
+const byId = (list, id) => list.find(x => x.id === id);
+const formData = f => Object.fromEntries(new FormData(f));
+const nextId = (p, list) => {
+  const max = list.reduce((m, x) => Math.max(m, Number((x.id.match(/(\d+)$/) || [0, 0])[1])), 0);
+  return `${p}-${z(max + 1, 3)}`;
+};
+function fdate(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts), f = S.settings.dateFormat;
+  if (f === 'iso') return dayKey(ts);
+  if (f === 'dmy') return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+const ftime = ts => ts ? new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '—';
+const fdt = ts => ts ? `${fdate(ts)} · ${ftime(ts)}` : '—';
+function rel(ts) {
+  if (!ts) return '—';
+  const diff = ts - Date.now(), a = Math.abs(diff);
+  if (a < MIN) return 'just now';
+  const t = a < HOUR ? `${Math.round(a / MIN)} min` : a < DAY ? `${Math.round(a / HOUR)} h` : `${Math.round(a / DAY)} d`;
+  return diff > 0 ? `in ${t}` : `${t} ago`;
+}
+const clockStr = sec => `${z(Math.floor(sec / 60))}:${z(sec % 60)}`;
+const initials = n => n.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
+const toLocalInput = ts => { if (!ts) return ''; const d = new Date(ts); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`; };
+const fromLocalInput = v => v ? new Date(v).getTime() : null;
+const opts = (list, sel) => list.map(([v, l]) => `<option value="${esc(v)}" ${String(v) === String(sel) ? 'selected' : ''}>${esc(l)}</option>`).join('');
+const secOpts = sel => opts([['9-A', 'Section 9-A'], ['9-B', 'Section 9-B']], sel);
+
+/* ===== 2. Icons (inline SVG, 24px grid, 2px stroke) ===== */
+const ICONS = {
+  dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  teacher: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>',
+  activity: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 12h6M9 16h4"/>',
+  exam: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
+  radio: '<circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>',
+  calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  trophy: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2z"/>',
+  cpu: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  minus: '<path d="M5 12h14"/>',
+  'chevron-left': '<path d="m15 18-6-6 6-6"/>',
+  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  trash: '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>',
+  play: '<path d="m6 4 14 8-14 8z"/>',
+  pause: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+  stop: '<rect x="5" y="5" width="14" height="14" rx="2"/>',
+  copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  qr: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1.5"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  alert: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+  'check-circle': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  'x-circle': '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',
+  home: '<path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+  keyboard: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+  'log-in': '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5M15 12H3"/>',
+  ticket: '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 11v2"/><path d="M13 17v2"/>',
+  refresh: '<path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/>',
+  'arrow-up': '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  'arrow-down': '<path d="M12 5v14M19 12l-7 7-7-7"/>',
+  leaf: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  wifi: '<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><path d="M12 20h.01"/>'
+};
+const I = (n, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[n] || ICONS.info}</svg>`;
+
+/* ===== 3. Status vocabulary (label + tone + icon; never colour alone) ===== */
+const STATUS = {
+  draft: ['Draft', 'muted', 'edit'], scheduled: ['Scheduled', 'info', 'calendar'], active: ['Active', 'ok', 'play'],
+  completed: ['Completed', 'muted', 'check'], ready: ['Ready', 'info', 'clock'], live: ['Live', 'ok', 'radio'],
+  paused: ['Paused', 'warn', 'pause'], ended: ['Ended', 'muted', 'stop'], expired: ['Expired', 'bad', 'alert'],
+  connected: ['Connected', 'ok', 'wifi'], syncing: ['Syncing', 'info', 'refresh'], disconnected: ['Disconnected', 'bad', 'x-circle'],
+  unavailable: ['Unavailable', 'warn', 'alert'], present: ['Present', 'ok', 'check'], late: ['Late', 'warn', 'clock'],
+  absent: ['Absent', 'bad', 'x'], unmarked: ['Not marked', 'muted', 'minus'], passed: ['Passed', 'ok', 'check'],
+  failed: ['Failed', 'bad', 'x'], pending: ['Pending review', 'warn', 'clock'], reviewed: ['Reviewed', 'ok', 'check'],
+  pass: ['Pass', 'ok', 'check'], warn: ['Warning', 'warn', 'alert'], fail: ['Fail', 'bad', 'x'], na: ['Not present', 'muted', 'minus'],
+  planned: ['Planned', 'muted', 'clock'], submitted: ['Submitted', 'ok', 'check'], waiting: ['Waiting', 'muted', 'clock'],
+  joined: ['Joined', 'ok', 'check'], notjoined: ['Not joined', 'muted', 'minus']
+};
+const badge = k => { const [l, t, ic] = STATUS[k] || [k, 'muted', 'info']; return `<span class="badge b-${t}">${I(ic)}<span>${esc(l)}</span></span>`; };
+
+/* ===== 4. Starting state (empty; records are created in the app) ===== */
+
+
+const RESP = ['Chloroplasts capture light energy, which is stored as glucose.', 'Light is absorbed in the thylakoids while carbon dioxide is fixed in the stroma.', 'Oxygen is released when water molecules are split during the light reactions.', 'Photosynthesis needs light, water, and carbon dioxide to make sugar and oxygen.'];
+const mcq = (id, prompt, options, correct) => ({ id, type: 'mc', prompt, options, correct });
+const txq = (id, prompt, keys) => ({ id, type: 'text', prompt, keys });
+
+function synth(ex, k) {
+  const a = {};
+  ex.questions.forEach((q, j) => {
+    if (q.type === 'mc') a[q.id] = (k + j) % 5 === 0 ? (q.correct + 1) % q.options.length : q.correct;
+    else a[q.id] = (k + j) % 4 === 0 ? 'not sure' : q.keys[0];
+  });
+  return a;
+}
+function grade(ex, answers) {
+  let score = 0;
+  ex.questions.forEach(q => {
+    const a = answers[q.id];
+    const ok = q.type === 'mc' ? a === q.correct : typeof a === 'string' && q.keys.some(k => k.toLowerCase() === a.trim().toLowerCase());
+    if (ok) score++;
+  });
+  const total = ex.questions.length, percent = total ? Math.round(score / total * 100) : 0;
+  return { score, total, percent, passed: percent >= ex.passing };
+}
+function mkExamSub(ex, studentId, sessionId, k, at) {
+  const answers = synth(ex, k), g = grade(ex, answers);
+  return { id: uid('sub'), type: 'exam', refId: ex.id, sessionId, studentId, answers, score: g.score, total: g.total, percent: g.percent, passed: g.passed, submittedAt: at, timeout: false, status: 'graded' };
+}
+function mkActSub(act, studentId, sessionId, k, at, status) {
+  return { id: uid('sub'), type: 'activity', refId: act.id, sessionId, studentId, text: RESP[k % RESP.length], submittedAt: at, status };
+}
+
+function seed() {
+  /* Empty starting state: no prefabricated records. Every student, exam,
+     activity, session, submission, attendance mark, and event is created
+     by the user while using the prototype. */
+  return {
+    v: 2, students: [], teachers: [], exams: [], activities: [], sessions: [], submissions: [], attendance: {}, events: [],
+    device: { ssid: '', ip: '', channel: '', status: 'connected', lastSync: null, storage: 0, firmware: '' },
+    settings: { systemName: 'SNTCH Classroom', dateFormat: 'mdy', theme: 'light', className: 'Grade 9 Science', defaultSection: '9-A', capacity: 50, defaultDuration: 15, passingScore: 60, showCorrect: true, confirmSubmit: true, defaultMark: 'present' },
+    student: { id: null, displayName: '', studentSession: null },
+    attempt: null
+  };
+}
+
+/* ===== 5. State, persistence, shared getters ===== */
+const KEY = 'sntch.forest.visual.v2';
+let S = null;
+const U = { rosterQ: '', rosterSec: 'all', rosterStatus: 'all', itemQ: '', itemTab: 'all', itemView: 'list', listType: 'activity', tchQ: '', tchStatus: 'all', resQ: '', resExam: 'all', resStatus: 'all', resSort: 'recent', attSec: '9-A', attDate: '', attQ: '', navOpen: false, lastHash: null, focusSel: null, diag: null, joinMsg: null, joinPreview: null, joining: false, joinCode: '', storageOk: true };
+function load() { try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d && d.v === 2) return d; } catch (e) { /* fall through to seed */ } return seed(); }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { U.storageOk = false; } }
+function logEvent(text, tone = 'info') { S.events.unshift({ id: uid('ev'), at: Date.now(), tone, text }); S.events = S.events.slice(0, 40); }
+function commit() { save(); render(); }
+const getItem = (type, id) => type === 'exam' ? byId(S.exams, id) : byId(S.activities, id);
+const itemTitle = (type, id) => (getItem(type, id) || {}).title || 'Untitled';
+const studentById = id => byId(S.students, id);
+const studentsIn = sec => S.students.filter(s => s.section === sec);
+const subsFor = (type, id) => S.submissions.filter(s => s.type === type && s.refId === id);
+const sessionOpenFor = (type, id) => S.sessions.find(s => s.refType === type && s.refId === id && s.state !== 'ended');
+const eff = s => (s.state === 'ready' && s.expiresAt && Date.now() > s.expiresAt) ? 'expired' : s.state;
+const pendingReviews = () => S.submissions.filter(s => s.type === 'activity' && s.status === 'pending');
+const connectedClients = () => S.device.status !== 'connected' ? 0 : new Set(S.sessions.filter(s => ['ready', 'live', 'paused'].includes(s.state)).flatMap(s => s.joined)).size;
+const attStatusOf = (s, key) => (((S.attendance[key] || {})[s.section]) || {})[s.id] || 'unmarked';
+function attCounts(sec, key) {
+  const roster = studentsIn(sec), c = { present: 0, late: 0, absent: 0, unmarked: 0, total: roster.length };
+  roster.forEach(s => { c[attStatusOf(s, key)]++; });
+  return c;
+}
+
+/* ===== 6. UI primitives ===== */
+const notice = (tone, html) => `<div class="notice n-${tone}" role="${tone === 'bad' ? 'alert' : 'note'}">${I({ ok: 'check-circle', info: 'info', warn: 'alert', bad: 'x-circle' }[tone])}<div>${html}</div></div>`;
+const empty = (icon, title, text, action = '') => `<div class="empty"><span class="ring">${I(icon)}</span><h3>${title}</h3><p class="small">${text}</p>${action ? `<div class="btn-row">${action}</div>` : ''}</div>`;
+const card = (title, body, extra = '', cls = '') => `<section class="card ${cls}"><div class="card-head"><h2>${title}</h2>${extra ? `<div class="btn-row">${extra}</div>` : ''}</div>${body}</section>`;
+const stat = (icon, label, value, sub) => `<div class="card stat"><div class="stat-top"><span class="chip-ico">${I(icon)}</span><span class="label">${label}</span></div><div class="value">${value}</div><div class="sub">${sub}</div></div>`;
+const bar = (pct, label) => `<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}" aria-label="${esc(label)}"><span style="width:${Math.min(100, Math.max(0, pct))}%"></span></div>`;
+const notFound = (msg, back) => empty('alert', 'Not found', msg, `<a class="btn" href="#${back}">Go back</a>`);
+const backLink = (href, text) => `<a class="back" href="${href}">${I('chevron-left')}${text}</a>`;
+const viewToggle = () => `<div class="seg" role="group" aria-label="Layout"><button type="button" data-action="item-view" data-val="list" aria-pressed="${U.itemView === 'list'}">${I('calendar')}List</button><button type="button" data-action="item-view" data-val="grid" aria-pressed="${U.itemView === 'grid'}">${I('dashboard')}Grid</button></div>`;
+
+function toast(msg, tone = 'success') {
+  const ic = { success: 'check-circle', warn: 'alert', error: 'x-circle', info: 'info' }[tone] || 'info';
+  const el = document.createElement('div');
+  el.className = `toast t-${tone}`;
+  el.innerHTML = `${I(ic)}<span></span>`;
+  el.querySelector('span').textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3800);
+}
+
+/* Modal + confirm. Focus returns to the trigger on close; Escape and Tab are handled in onKey. */
+let MODAL_RET = null, CONFIRM_CB = null;
+function openModal({ title, body, foot = '', large = false, onReady }) {
+  const root = $('#modal-root');
+  root.innerHTML = `<div class="modal-scrim" data-action="modal-close"></div>
+  <div class="modal${large ? ' modal-lg' : ''}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <header class="modal-head"><h2 id="modal-title">${title}</h2><button type="button" class="icon-btn" data-action="modal-close" aria-label="Close dialog" title="Close">${I('x')}</button></header>
+    <div class="modal-body">${body}</div>
+    ${foot ? `<footer class="modal-foot">${foot}</footer>` : ''}
+  </div>`;
+  if (root.hidden) MODAL_RET = document.activeElement;
+  root.hidden = false;
+  const first = root.querySelector('input:not([type=hidden]):not([type=radio]),select,textarea') || root.querySelector('.modal-foot button') || root.querySelector('[data-action="modal-close"]');
+  if (first) first.focus();
+  if (onReady) onReady(root);
+}
+function closeModal(restore = true) {
+  const root = $('#modal-root');
+  if (root.hidden) return;
+  root.hidden = true; root.innerHTML = ''; CONFIRM_CB = null;
+  if (restore && MODAL_RET && document.contains(MODAL_RET)) MODAL_RET.focus();
+  MODAL_RET = null;
+}
+function confirmBox({ title, message, action = 'Confirm', danger = false, onYes }) {
+  CONFIRM_CB = onYes;
+  openModal({
+    title, body: `<p>${message}</p>`,
+    foot: `<button type="button" class="btn" data-action="modal-close">Cancel</button><button type="button" class="btn ${danger ? 'btn-danger-solid' : 'btn-primary'}" data-action="confirm-yes">${esc(action)}</button>`
+  });
+}
+
+/* Validation: show inline messages, focus the first invalid field. */
+function showErr(f, name, msg, focus = true) {
+  const el = f.elements.namedItem(name); if (!el) return false;
+  el.setAttribute('aria-invalid', 'true');
+  const p = document.createElement('p'); p.className = 'field-error'; p.id = `err-${name}`; p.textContent = msg;
+  el.setAttribute('aria-describedby', p.id);
+  (el.closest('.field') || el.parentElement).appendChild(p);
+  if (focus) el.focus();
+  return false;
+}
+function validate(f, rules) {
+  f.querySelectorAll('.field-error').forEach(n => n.remove());
+  f.querySelectorAll('[aria-invalid]').forEach(n => n.setAttribute('aria-invalid', 'false'));
+  let ok = true, first = true;
+  rules.forEach(r => {
+    const el = f.elements.namedItem(r.name); if (!el) return;
+    const v = String(el.value ?? '').trim(); let msg = '';
+    if (r.req && !v) msg = r.req;
+    else if (v && r.min && v.length < r.min) msg = `Use at least ${r.min} characters.`;
+    else if (v && r.max && v.length > r.max) msg = `Use ${r.max} characters or fewer.`;
+    else if (v && r.test && !r.test(v)) msg = r.msg;
+    if (msg) { ok = false; showErr(f, r.name, msg, first); first = false; }
+  });
+  return ok;
+}
+
+/* Clipboard with fallback; CSV text is built from local data. */
+async function copyText(text) {
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; } } catch (e) { /* use fallback */ }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  ta.remove();
+  return ok;
+}
+/* CSV export. Artifact viewers cannot receive downloads, so the text opens in a dialog with a Copy button. */
+let CSV_TEXT = '';
+function downloadCSV(name, rows) {
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  CSV_TEXT = rows.map(r => r.map(q).join(',')).join('\r\n');
+  openModal({
+    title: 'CSV export',
+    body: `<p class="small">Copy the text below into a spreadsheet app, then save it as <span class="mono">${esc(name)}</span>.</p>
+      <label class="field mt"><span class="label">CSV text</span><textarea class="textarea mono" id="csv-text" rows="10" readonly spellcheck="false">${esc(CSV_TEXT)}</textarea></label>`,
+    foot: `<button type="button" class="btn" data-action="modal-close">Close</button><button type="button" class="btn btn-primary" data-action="csv-copy">${I('copy')}Copy CSV</button>`,
+    large: true
+  });
+}
+
+/* ===== 7. Routing and shell ===== */
+const TEACHER_NAV = [
+  ['Overview', [['dashboard', 'Dashboard', 'dashboard']]],
+  ['Manage', [['students', 'Students', 'users'], ['teachers', 'Teachers', 'teacher'], ['activities', 'Activities', 'activity'], ['exams', 'Examinations', 'exam']]],
+  ['Classroom', [['sessions', 'Sessions', 'radio'], ['attendance', 'Attendance', 'calendar']]],
+  ['Review', [['results', 'Results & history', 'trophy']]],
+  ['System', [['device', 'Device & network', 'cpu'], ['settings', 'Settings', 'settings']]]
+];
+const STUDENT_NAV = [['home', 'Home', 'home'], ['join', 'Join', 'ticket'], ['results', 'Results', 'trophy'], ['profile', 'Profile', 'user']];
+const TITLES = {
+  dashboard: ['Dashboard', 'Today at a glance'], students: ['Students', 'Roster, search, and attendance'], student: ['Student', 'Profile and history'],
+  teachers: ['Teachers', 'Directory and simulated permissions'], activities: ['Activities', 'Draft, schedule, run, and close tasks'], activity: ['Activity', 'Details and submission overview'],
+  exams: ['Examinations', 'Question banks and results'], exam: ['Examination', 'Settings and questions'], sessions: ['Sessions', 'Join codes and live monitoring'],
+  session: ['Session', 'Live monitoring (simulated)'], attendance: ['Attendance', 'Mark present, late, or absent'], results: ['Results & history', 'Scores, review, and CSV export'],
+  device: ['Device & network', 'Simulated controller status'], settings: ['Settings', 'Local preferences and controls']
+};
+const PARENT = { student: 'students', activity: 'activities', exam: 'exams', session: 'sessions' };
+
+function route() {
+  const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+  const role = parts[0] === 'student' ? 'student' : 'teacher';
+  const rest = (parts[0] === 'student' || parts[0] === 'teacher') ? parts.slice(1) : parts;
+  let view = rest[0] || (role === 'teacher' ? 'dashboard' : 'home');
+  if (role === 'teacher' && !TEACHER_VIEWS[view]) view = 'dashboard';
+  if (role === 'student' && !STUDENT_VIEWS[view]) view = 'home';
+  return { role, view, id: rest[1] };
+}
+const routeIs = (role, view) => { const r = route(); return r.role === role && r.view === view; };
+const inExam = r => r.role === 'student' && r.view === 'exam' && S.attempt && S.attempt.status === 'in-progress';
+function applyTheme() {
+  if (S.settings.theme === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', S.settings.theme === 'dark' ? 'dark' : 'light');
+}
+
+function sidebarHTML(view) {
+  const cur = PARENT[view] || view;
+  return `<div class="brand"><span class="logo">${I('leaf')}</span><div class="brand-text"><span class="wordmark">SNTCH</span><small>${esc(S.settings.systemName)} · prototype</small></div>
+  <button type="button" class="icon-btn menu-close" data-action="nav-close" aria-label="Close navigation">${I('x')}</button></div>
+  <nav class="snav" aria-label="Teacher navigation">${TEACHER_NAV.map(([g, items]) => `<div class="nav-group"><div class="nav-label">${g}</div>${items.map(([k, l, ic]) => `<a href="#teacher/${k}" ${cur === k ? 'aria-current="page"' : ''}>${I(ic)}<span>${l}</span></a>`).join('')}</div>`).join('')}</nav>
+  <div class="side-card"><p class="xs">Controller status (simulated)</p><p class="side-status"><span class="side-dot"></span>${STATUS[S.device.status][0]}</p><p class="xs side-muted">Stored in this browser only. Nothing is synced to a device.</p></div>`;
+}
+
+function topbarHTML(r) {
+  const status = `<a class="status-chip" href="#teacher/device" title="Controller status (simulated)"><span class="side-dot-sm s-${S.device.status}"></span><span class="chip-text">${STATUS[S.device.status][0]} · simulated</span></a>`;
+  if (r.role === 'student') return `<div class="brand-mini"><span class="logo sm">${I('leaf')}</span><span class="wordmark dark">SNTCH</span></div>${status}`;
+  const [title, desc] = TITLES[r.view] || TITLES.dashboard;
+  const recent = S.events.filter(e => Date.now() - e.at < HOUR).length;
+  return `<button type="button" class="icon-btn menu-btn" data-action="nav-toggle" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="${U.navOpen}">${I('menu')}</button>
+  <div class="page-title"><h1>${esc(title)}</h1><p class="small muted">${esc(desc)}</p></div>
+  <div class="search"><label class="sr-only" for="global-q">Search students, exams, activities and codes</label>
+    <div class="search-field">${I('search')}<input id="global-q" class="input" type="search" data-input="global-q" placeholder="Search students, exams, codes" autocomplete="off"></div>
+    <div class="search-results" id="global-results" hidden></div></div>
+  <details class="menu-wrap"><summary class="btn btn-primary btn-sm">${I('plus')}<span class="create-label">Create</span></summary>
+    <div class="menu-panel"><button type="button" class="menu-item" data-action="new-activity">${I('activity')}New activity</button><button type="button" class="menu-item" data-action="new-exam">${I('exam')}New examination</button><button type="button" class="menu-item" data-action="new-session">${I('radio')}New session</button></div></details>
+  ${status}
+  <details class="menu-wrap"><summary class="icon-btn" aria-label="Recent activity, ${recent} in the last hour">${I('bell')}${recent ? `<span class="count-dot">${recent}</span>` : ''}</summary>
+    <div class="menu-panel wide"><h3 class="menu-head">Recent activity</h3><ul class="notif">${S.events.length ? '' : '<li class="xs muted" style="padding:6px 10px 2px">No recent activity</li>'}${S.events.slice(0, 7).map(e => `<li><span>${esc(e.text)}</span><span class="xs muted">${rel(e.at)}</span></li>`).join('')}</ul></div></details>
+  <details class="menu-wrap"><summary class="avatar" aria-label="Teacher profile menu">T</summary>
+    <div class="menu-panel"><p class="menu-head"><strong>Teacher</strong><br><span class="muted small">Class adviser · ${esc(S.settings.className)}</span></p>
+    <button type="button" class="menu-item" data-action="set-role" data-role="student">${I('user')}Preview as student</button>
+    <button type="button" class="menu-item" data-action="about">${I('info')}About this prototype</button>
+    <button type="button" class="menu-item danger" data-action="reset-demo">${I('refresh')}Clear all data</button></div></details>`;
+}
+
+function render() {
+  const r = route(), changed = location.hash !== U.lastHash;
+  if (changed) {
+    U.lastHash = location.hash; U.navOpen = false;
+    closeModal(false);
+    if (U.diag && !(r.role === 'teacher' && r.view === 'device')) U.diag = null;
+  }
+  document.body.className = `${r.role === 'student' ? 'role-student' : 'role-teacher'}${U.navOpen ? ' nav-open' : ''}${inExam(r) ? ' exam-focus' : ''}`;
+  $('#sidebar').innerHTML = r.role === 'teacher' ? sidebarHTML(r.view) : '';
+  $('#topbar').innerHTML = topbarHTML(r);
+  const navLink = ([k, l, ic]) => `<a href="#student/${k}" ${(r.view === k || (k === 'home' && (r.view === 'activity' || r.view === 'exam'))) ? 'aria-current="page"' : ''}>${I(ic)}<span>${l}</span></a>`;
+  $('#bottomnav').innerHTML = r.role === 'student'
+    ? `<svg class="nav-hump" viewBox="0 0 176 28" preserveAspectRatio="none" aria-hidden="true"><path d="M0 28H28C40 28 49.82 20.78 58.3 12.3A42 42 0 0 1 117.7 12.3C126.18 20.78 136 28 148 28H176"/></svg>${STUDENT_NAV.slice(0, 2).map(navLink).join('')}<div class="nav-slot"><a class="nav-scan" href="#student/scan" aria-label="Scan QR code" title="Scan QR code" ${r.view === 'scan' ? 'aria-current="page"' : ''}>${I('qr')}</a></div>${STUDENT_NAV.slice(2).map(navLink).join('')}`
+    : '';
+  const fn = r.role === 'teacher' ? TEACHER_VIEWS[r.view] : STUDENT_VIEWS[r.view];
+  $('#main').innerHTML = fn(r.id);
+  if (changed) { window.scrollTo(0, 0); $('#main').focus({ preventScroll: true }); }
+  if (U.focusSel) { const el = $(U.focusSel); if (el) el.focus(); U.focusSel = null; }
+}
+
+/* ===== 8. Event dispatch (delegation; handlers live in later sections) ===== */
+const ACTIONS = {}, INPUTS = {}, CHANGES = {}, FORMS = {};
+function closeMenus(target) { $$('details[open]').forEach(d => { if (!target || !d.contains(target)) d.removeAttribute('open'); }); }
+function onClick(e) {
+  const el = e.target.closest('[data-action]');
+  const sr = $('#global-results');
+  if (sr && !sr.hidden && !e.target.closest('.search')) sr.hidden = true;
+  if (!el) { closeMenus(e.target); return; }
+  closeMenus(el);
+  if (el.closest('details')) el.closest('details').removeAttribute('open');
+  const fn = ACTIONS[el.dataset.action];
+  if (!fn || el.disabled) return;
+  e.preventDefault();
+  fn(el, e);
+}
+function onInput(e) {
+  const el = e.target;
+  if (el.dataset.answer && el.type !== 'radio') return onAnswer(el);
+  if (el.dataset.input && INPUTS[el.dataset.input]) INPUTS[el.dataset.input](el);
+}
+function onChange(e) {
+  const el = e.target;
+  if (el.dataset.answer && el.type === 'radio') return onAnswer(el);
+  if (el.dataset.change && CHANGES[el.dataset.change]) CHANGES[el.dataset.change](el);
+}
+function onSubmit(e) {
+  const f = e.target;
+  e.preventDefault(); if (f.dataset && f.dataset.form && FORMS[f.dataset.form]) FORMS[f.dataset.form](f);
+}
+function onKey(e) {
+  const modalOpen = !$('#modal-root').hidden;
+  if (e.key === 'Escape') {
+    if (modalOpen) return closeModal();
+    if (U.navOpen) { U.navOpen = false; document.body.classList.remove('nav-open'); }
+    closeMenus(null);
+    const sr = $('#global-results'); if (sr) sr.hidden = true;
+  }
+  if (e.key === 'Tab' && modalOpen) {
+    const f = $$('#modal-root button:not([disabled]), #modal-root input:not([type=hidden]), #modal-root select, #modal-root textarea');
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+}
+
+/* ===== 9. Teacher views ===== */
+const TEACHER_VIEWS = { dashboard: vDashboard, students: vStudents, student: vStudent, teachers: vTeachers, activities: vActivities, activity: vActivity, exams: vExams, exam: vExam, sessions: vSessions, session: vSession, attendance: vAttendance, results: vResults, device: vDevice, settings: vSettings };
+const ITEM_TABS = [['all', 'All'], ['draft', 'Draft'], ['scheduled', 'Scheduled'], ['active', 'Active'], ['completed', 'Completed']];
+const DIAG_STEPS = ['Pinging controller (simulated)', 'Checking access point (simulated)', 'Counting clients (simulated)', 'Reading storage (simulated)', 'Checking last sync (simulated)'];
+const DEV_STATUSES = ['connected', 'syncing', 'disconnected', 'unavailable'];
+
+const dStatus = (type, it) => { const o = sessionOpenFor(type, it.id); return o && o.state === 'paused' ? 'paused' : it.status; };
+const progressOf = (type, it) => {
+  const total = studentsIn(it.target).length, n = new Set(subsFor(type, it.id).map(s => s.studentId)).size;
+  return { n, total, pct: total ? Math.round(n / total * 100) : 0 };
+};
+const attMarkedCount = c => c.present + c.late + c.absent;
+
+/* -- Dashboard -- */
+function attBlock(sec) {
+  const c = attCounts(sec, dayKey(Date.now())), marked = attMarkedCount(c);
+  const pct = c.total ? Math.round(marked / c.total * 100) : 0;
+  return `<div class="att-item"><div class="row-between"><strong>Section ${sec}</strong><span class="mono small">${marked}/${c.total} marked</span></div>${bar(pct, `Section ${sec} marked today`)}
+  <div class="chips"><span class="badge b-ok">Present <b class="mono">${c.present}</b></span><span class="badge b-warn">Late <b class="mono">${c.late}</b></span><span class="badge b-bad">Absent <b class="mono">${c.absent}</b></span><span class="badge b-muted">Not marked <b class="mono">${c.unmarked}</b></span></div></div>`;
+}
+const sessionRow = s => `<li class="list-item"><div class="grow"><a class="strong" href="#teacher/session/${s.id}">${esc(s.title)}</a><div class="small muted">${s.refType === 'exam' ? 'Examination' : 'Activity'} · ${s.target} · ${s.joined.length} joined</div></div>${badge(eff(s))}</li>`;
+function vDashboard() {
+  const live = S.sessions.filter(s => s.state === 'live' || s.state === 'paused');
+  const ready = S.sessions.filter(s => s.state === 'ready');
+  const open = [...live, ...ready];
+  const upcoming = [...S.activities.map(a => ({ ...a, type: 'activity' })), ...S.exams.map(e => ({ ...e, type: 'exam' }))]
+    .filter(x => x.status === 'scheduled' || x.status === 'draft')
+    .sort((a, b) => (a.startsAt || Infinity) - (b.startsAt || Infinity));
+  const results = S.submissions.filter(s => s.type === 'exam').slice(0, 5);
+  const dev = S.device;
+  return `
+  <div class="grid stats">
+    ${stat('users', 'Registered students', S.students.length, `${studentsIn('9-A').length} in 9-A · ${studentsIn('9-B').length} in 9-B`)}
+    ${stat('radio', 'Active sessions', live.length, `${ready.length} ready to start`)}
+    ${stat('activity', 'Activities &amp; exams', S.activities.length + S.exams.length, `${S.activities.length} activities · ${S.exams.length} exams`)}
+    ${stat('clock', 'Pending submissions', pendingReviews().length, 'Activity responses to review')}
+  </div>
+  <div class="grid two">
+    ${card('Attendance today', `<div class="att-grid">${attBlock('9-A')}${attBlock('9-B')}</div>`, `<a class="btn btn-sm" href="#teacher/attendance">Open attendance</a>`)}
+    ${card('Running and ready sessions', open.length ? `<ul class="list">${open.slice(0, 5).map(sessionRow).join('')}</ul>` : empty('radio', 'No sessions running', 'Create a session so students can join with a code.', `<button type="button" class="btn btn-primary btn-sm" data-action="new-session">${I('plus')}New session</button>`), `<a class="btn btn-sm" href="#teacher/sessions">All sessions</a>`)}
+  </div>
+  <div class="grid two">
+    ${card('Upcoming', upcoming.length ? `<ul class="list">${upcoming.slice(0, 5).map(x => `<li class="list-item"><div class="grow"><a class="strong" href="#teacher/${x.type === 'exam' ? 'exam' : 'activity'}/${x.id}">${esc(x.title)}</a><div class="small muted">${x.type === 'exam' ? 'Examination' : 'Activity'} · ${x.target} · ${x.startsAt ? 'Opens ' + fdt(x.startsAt) : 'No date set'}</div></div>${badge(x.status)}</li>`).join('')}</ul>` : empty('calendar', 'Nothing scheduled', 'Draft items appear here once they have an opening time.'))}
+    ${card('Recent exam results', results.length ? `<ul class="list">${results.map(r => `<li class="list-item"><div class="grow"><span class="strong">${esc((studentById(r.studentId) || {}).name || 'Student')}</span><div class="small muted">${esc(itemTitle('exam', r.refId))}</div></div><span class="mono">${r.percent}%</span>${badge(r.passed ? 'passed' : 'failed')}</li>`).join('')}</ul>` : empty('trophy', 'No exam results yet', 'Results appear after students submit an examination.'), `<a class="btn btn-sm" href="#teacher/results">Open results</a>`)}
+  </div>
+  <div class="grid two">
+    ${card('Recent classroom activity', S.events.length ? `<ul class="list">${S.events.slice(0, 6).map(e => `<li class="list-item"><span class="dot t-${e.tone}"></span><div class="grow">${esc(e.text)}</div><span class="xs muted">${rel(e.at)}</span></li>`).join('')}</ul>` : empty('clock', 'No activity yet', 'Actions you take appear here.'))}
+    ${card('Device and network (simulated)', `<div class="row-between">${badge(dev.status)}<span class="mono small">${esc(dev.ssid)}</span></div>
+      <p class="small muted mt">Simulated clients: <b class="mono">${connectedClients()}</b> of ${S.settings.capacity} target</p>${bar(dev.storage, 'Simulated storage used')}<p class="xs muted mt">Storage ${dev.storage}% (simulated)</p>`, `<a class="btn btn-sm" href="#teacher/device">Diagnostics</a>`)}
+  </div>
+  ${card('Quick actions', `<div class="quick">
+    <button type="button" class="btn" data-action="new-activity">${I('activity')}New activity</button>
+    <button type="button" class="btn" data-action="new-exam">${I('exam')}New examination</button>
+    <button type="button" class="btn" data-action="new-session">${I('radio')}Start a session</button>
+    <a class="btn" href="#teacher/attendance">${I('calendar')}Take attendance</a></div>`)}`;
+}
+
+/* -- Students -- */
+function filteredRoster() {
+  const q = U.rosterQ.trim().toLowerCase(), key = dayKey(Date.now());
+  return S.students.filter(s => (!q || (s.name + ' ' + s.number).toLowerCase().includes(q))
+    && (U.rosterSec === 'all' || s.section === U.rosterSec)
+    && (U.rosterStatus === 'all' || attStatusOf(s, key) === U.rosterStatus));
+}
+function rosterRows(rows) {
+  if (!rows.length) return `<tr><td class="empty-cell" colspan="6">${empty('users', 'No students match', 'Try another name, number, section, or status.')}</td></tr>`;
+  const key = dayKey(Date.now());
+  return rows.map(s => `<tr>
+    <td data-label="Student no." class="mono">${s.number}</td>
+    <td data-label="Name" class="cell-main"><a href="#teacher/student/${s.id}">${esc(s.name)}</a></td>
+    <td data-label="Section">${s.section}</td>
+    <td data-label="Today">${badge(attStatusOf(s, key))}</td>
+    <td data-label="Submissions" class="mono">${S.submissions.filter(x => x.studentId === s.id).length}</td>
+    <td class="actions"><a class="icon-btn sm" href="#teacher/student/${s.id}" aria-label="View ${esc(s.name)}" title="View">${I('eye')}</a>
+      <button type="button" class="icon-btn sm" data-action="student-edit" data-id="${s.id}" aria-label="Edit ${esc(s.name)}" title="Edit">${I('edit')}</button>
+      <button type="button" class="icon-btn sm" data-action="student-remove" data-id="${s.id}" aria-label="Remove ${esc(s.name)}" title="Remove">${I('trash')}</button></td></tr>`).join('');
+}
+function refreshRoster() {
+  const rows = filteredRoster();
+  $('#roster-body').innerHTML = rosterRows(rows);
+  $('#roster-count').textContent = `${rows.length} of ${S.students.length} students shown`;
+}
+function vStudents() {
+  const rows = filteredRoster();
+  return `<div class="toolbar">
+    <div class="search-field grow">${I('search')}<input class="input" type="search" data-input="roster-q" aria-label="Search students" placeholder="Name or student no." value="${esc(U.rosterQ)}" autocomplete="off"></div>
+    <select class="select" data-change="roster-sec" aria-label="Filter by section">${opts([['all', 'All sections'], ['9-A', 'Section 9-A'], ['9-B', 'Section 9-B']], U.rosterSec)}</select>
+    <select class="select" data-change="roster-status" aria-label="Filter by today's attendance">${opts([['all', 'Any attendance'], ['present', 'Present'], ['late', 'Late'], ['absent', 'Absent'], ['unmarked', 'Not marked']], U.rosterStatus)}</select>
+    <button type="button" class="btn btn-primary" data-action="student-new">${I('plus')}Add student</button></div>
+  <p class="small muted" id="roster-count">${rows.length} of ${S.students.length} students shown</p>
+  <div class="table-wrap"><table class="data-table"><thead><tr><th>Student no.</th><th>Name</th><th>Section</th><th>Today</th><th>Submissions</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="roster-body">${rosterRows(rows)}</tbody></table></div>`;
+}
+function vStudent(id) {
+  const s = studentById(id); if (!s) return notFound('No student matches this link.', 'teacher/students');
+  const subs = S.submissions.filter(x => x.studentId === s.id), exs = subs.filter(x => x.type === 'exam');
+  const avg = exs.length ? Math.round(exs.reduce((a, b) => a + b.percent, 0) / exs.length) : null;
+  let marked = 0, good = 0; const hist = [];
+  Object.keys(S.attendance).sort().reverse().forEach(k => { const st = attStatusOf(s, k); if (st !== 'unmarked') { marked++; if (st !== 'absent') good++; hist.push([k, st]); } });
+  const rate = marked ? Math.round(good / marked * 100) + '%' : '—';
+  return `${backLink('#teacher/students', 'All students')}
+  <section class="card profile-head"><span class="avatar lg">${initials(s.name)}</span><div class="grow"><p class="small muted mono">${s.number}</p><h1>${esc(s.name)}</h1><p class="small muted">${s.section} · ${s.status}</p></div>
+    <div class="btn-row"><button type="button" class="btn btn-sm" data-action="student-edit" data-id="${s.id}">${I('edit')}Edit</button><button type="button" class="btn btn-sm btn-danger" data-action="student-remove" data-id="${s.id}">${I('trash')}Remove</button></div></section>
+  <div class="grid stats">
+    ${stat('exam', 'Exam average', avg === null ? '—' : avg + '%', `${exs.length} submitted`)}
+    ${stat('check', 'Activities submitted', subs.filter(x => x.type === 'activity').length, 'Including pending review')}
+    ${stat('calendar', 'Attendance rate', rate, `${marked} dates marked`)}
+    ${stat('trophy', 'Passed exams', exs.filter(x => x.passed).length, 'Against each pass mark')}
+  </div>
+  <div class="grid two">
+    ${card('Submission history', subs.length ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Item</th><th>Type</th><th>Result</th><th>Submitted</th></tr></thead><tbody>${subs.map(x => `<tr><td data-label="Item" class="cell-main">${esc(itemTitle(x.type === 'exam' ? 'exam' : 'activity', x.refId))}</td><td data-label="Type">${x.type === 'exam' ? 'Examination' : 'Activity'}</td><td data-label="Result">${x.type === 'exam' ? `<span class="mono">${x.percent}%</span> ${badge(x.passed ? 'passed' : 'failed')}` : badge(x.status)}</td><td data-label="Submitted" class="mono xs">${fdt(x.submittedAt)}</td></tr>`).join('')}</tbody></table></div>` : empty('file', 'No submissions yet', 'Exam and activity submissions appear here.'))}
+    ${card('Attendance history', hist.length ? `<ul class="list">${hist.slice(0, 8).map(([k, st]) => `<li class="list-item"><span class="grow mono small">${k}</span>${badge(st)}</li>`).join('')}</ul>` : empty('calendar', 'No attendance marked', 'Mark attendance for this section to build history.'))}
+  </div>`;
+}
+
+/* -- Teachers -- */
+function teacherCards() {
+  const q = U.tchQ.trim().toLowerCase();
+  const rows = S.teachers.filter(t => (!q || (t.name + ' ' + t.subjects.join(' ')).toLowerCase().includes(q)) && (U.tchStatus === 'all' || t.status === U.tchStatus));
+  if (!rows.length) return empty('teacher', 'No teachers match', 'Adjust the search or status filter.');
+  return rows.map(t => `<article class="card"><div class="card-head"><div class="person"><span class="avatar">${initials(t.name)}</span><div><h3>${esc(t.name)}</h3><p class="small muted">${esc(t.role)}</p></div></div>
+    <span class="badge ${t.status === 'active' ? 'b-ok' : 'b-warn'}">${t.status === 'active' ? 'Active' : 'On leave'}</span></div>
+    <p class="small"><span class="muted">Subjects:</span> ${esc(t.subjects.join(', '))}</p>
+    <div class="chips mt">${t.classes.map(c => `<span class="tag">Section ${c}</span>`).join('')}</div>
+    <div class="btn-row mt"><button type="button" class="btn btn-sm" data-action="teacher-edit" data-id="${t.id}">${I('edit')}Edit</button><button type="button" class="btn btn-sm" data-action="teacher-details" data-id="${t.id}">${I('eye')}Details</button></div></article>`).join('');
+}
+function vTeachers() {
+  return `${notice('warn', 'Role and permission controls are a UI simulation. They do not change access rights in any real system.')}
+  <div class="toolbar"><div class="search-field grow">${I('search')}<input class="input" type="search" data-input="tch-q" aria-label="Search teachers" placeholder="Name or subject" value="${esc(U.tchQ)}" autocomplete="off"></div>
+    <select class="select" data-change="tch-status" aria-label="Filter by status">${opts([['all', 'All statuses'], ['active', 'Active'], ['on leave', 'On leave']], U.tchStatus)}</select>
+    <button type="button" class="btn btn-primary" data-action="teacher-new">${I('plus')}Add teacher</button></div>
+  <div class="grid cards" id="tch-grid">${teacherCards()}</div>`;
+}
+
+/* -- Activities and examinations (shared list machinery) -- */
+function tabsHTML(list) {
+  return `<div class="seg wrap" role="group" aria-label="Filter by status">${ITEM_TABS.map(([k, l]) => `<button type="button" data-action="item-tab" data-val="${k}" aria-pressed="${U.itemTab === k}">${l} <span class="mono xs">${k === 'all' ? list.length : list.filter(x => x.status === k).length}</span></button>`).join('')}</div>`;
+}
+function itemRows(type) {
+  const list = type === 'exam' ? S.exams : S.activities, q = U.itemQ.trim().toLowerCase();
+  return list.filter(x => (!q || x.title.toLowerCase().includes(q)) && (U.itemTab === 'all' || x.status === U.itemTab));
+}
+function itemActions(type, it, inline = false) {
+  const open = sessionOpenFor(type, it.id);
+  const b = (action, icon, label, cls = '', extra = '') => `<button type="button" class="btn btn-sm ${cls}" data-action="${action}" data-type="${type}" data-id="${it.id}" aria-label="${label} ${esc(it.title)}" ${extra}>${I(icon)}<span>${label}</span></button>`;
+  const out = [b('item-preview', 'eye', 'Preview')];
+  if (type === 'activity' && it.status !== 'completed') out.push(b('act-edit', 'edit', 'Edit'));
+  if (type === 'exam' && it.status !== 'completed') out.push(`<a class="btn btn-sm" href="#teacher/exam/${it.id}" aria-label="Edit ${esc(it.title)}">${I('edit')}<span>Edit</span></a>`);
+  if (type === 'exam' && it.status === 'draft') out.push(b('exam-publish', 'file', 'Publish', 'btn-primary'));
+  if (!open && it.status !== 'completed') out.push(b('item-start', 'play', 'Start', 'btn-primary', it.status === 'draft' ? 'disabled title="Schedule or publish before starting"' : ''));
+  if (open) out.push(b('item-pause', open.state === 'paused' ? 'play' : 'pause', open.state === 'paused' ? 'Resume' : 'Pause'));
+  if (open) out.push(b('item-close', 'stop', 'Close', 'btn-danger'));
+  if (!open) out.push(b('item-delete', 'trash', 'Delete', 'btn-danger'));
+  return (inline || out.length <= 3) ? out.join('') : `<div class="btn-row btn-grid">${out.join('')}</div>`;
+}
+function itemRow(type, it) {
+  const p = progressOf(type, it), open = sessionOpenFor(type, it.id);
+  return `<tr><td data-label="Title" class="cell-main"><a href="#teacher/${type === 'exam' ? 'exam' : 'activity'}/${it.id}">${esc(it.title)}</a></td>
+  <td data-label="Audience">${it.target}</td>
+  <td data-label="Status">${badge(dStatus(type, it))}</td>
+  <td data-label="Window" class="xs mono">${it.startsAt ? fdate(it.startsAt) + (it.dueAt ? ' → ' + fdate(it.dueAt) : '') : '—'}</td>
+  <td data-label="Progress"><div class="prog-cell">${bar(p.pct, 'Progress')}<span class="mono xs">${p.n}/${p.total}</span></div></td>
+  <td data-label="Session">${open ? `<span class="code code-sm">${open.code}</span>` : '<span class="muted small">Not running</span>'}</td>
+  <td class="actions">${itemActions(type, it, true)}</td></tr>`;
+}
+function itemCard(type, it) {
+  const p = progressOf(type, it), open = sessionOpenFor(type, it.id);
+  return `<article class="card"><div class="card-head"><div><p class="xs muted">${type === 'exam' ? 'Examination' : 'Activity'} · ${it.target}</p><h3><a href="#teacher/${type === 'exam' ? 'exam' : 'activity'}/${it.id}">${esc(it.title)}</a></h3></div>${badge(dStatus(type, it))}</div>
+  <p class="small muted">${it.startsAt ? 'Opens ' + fdt(it.startsAt) : 'No opening time'}</p>
+  <div class="prog-cell mt">${bar(p.pct, 'Progress')}<span class="mono xs">${p.n}/${p.total}</span></div>
+  ${open ? `<p class="xs muted mt">Session code <span class="code code-sm">${open.code}</span></p>` : ''}
+  <div class="btn-row mt">${itemActions(type, it)}</div></article>`;
+}
+function itemList(type) {
+  const rows = itemRows(type);
+  if (!rows.length) return empty(type === 'exam' ? 'exam' : 'activity', 'Nothing here yet', U.itemTab === 'all' && !U.itemQ ? 'Create one to start building classroom tasks.' : 'No items match this filter.', `<button type="button" class="btn btn-primary btn-sm" data-action="${type === 'exam' ? 'new-exam' : 'new-activity'}">${I('plus')}Create</button>`);
+  if (U.itemView === 'grid') return `<div class="grid cards">${rows.map(it => itemCard(type, it)).join('')}</div>`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Title</th><th>Audience</th><th>Status</th><th>Window</th><th>Progress</th><th>Session</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${rows.map(it => itemRow(type, it)).join('')}</tbody></table></div>`;
+}
+function vActivities() {
+  U.listType = 'activity';
+  return `${tabsHTML(S.activities)}<div class="toolbar"><div class="search-field grow">${I('search')}<input class="input" type="search" data-input="item-q" aria-label="Search activities" placeholder="Search activities" value="${esc(U.itemQ)}" autocomplete="off"></div>
+  ${viewToggle()}<button type="button" class="btn btn-primary" data-action="new-activity">${I('plus')}New activity</button></div>
+  <div id="item-list">${itemList('activity')}</div>`;
+}
+function vExams() {
+  U.listType = 'exam';
+  return `${tabsHTML(S.exams)}<div class="toolbar"><div class="search-field grow">${I('search')}<input class="input" type="search" data-input="item-q" aria-label="Search examinations" placeholder="Search examinations" value="${esc(U.itemQ)}" autocomplete="off"></div>
+  ${viewToggle()}<button type="button" class="btn btn-primary" data-action="new-exam">${I('plus')}New examination</button></div>
+  <div id="item-list">${itemList('exam')}</div>`;
+}
+function vActivity(id) {
+  const a = byId(S.activities, id); if (!a) return notFound('This activity no longer exists.', 'teacher/activities');
+  const open = sessionOpenFor('activity', a.id), p = progressOf('activity', a), subs = subsFor('activity', a.id);
+  const rows = studentsIn(a.target).map(s => {
+    const sub = subs.find(x => x.studentId === s.id);
+    return `<tr><td data-label="Student" class="cell-main">${esc(s.name)}</td>
+      <td data-label="Response">${sub ? `<span class="xs muted">${esc(sub.text.slice(0, 70))}${sub.text.length > 70 ? '…' : ''}</span>` : '<span class="muted small">No response</span>'}</td>
+      <td data-label="Status">${sub ? badge(sub.status) : badge('waiting')}</td>
+      <td class="actions">${sub && sub.status === 'pending' ? `<button type="button" class="btn btn-sm" data-action="sub-review" data-id="${sub.id}">${I('check')}Mark reviewed</button>` : ''}</td></tr>`;
+  }).join('');
+  return `${backLink('#teacher/activities', 'All activities')}
+  <div class="page-head"><div class="grow"><p class="small muted">Activity · section ${a.target}</p><h1>${esc(a.title)}</h1></div>${badge(dStatus('activity', a))}</div>
+  <div class="btn-row">${itemActions('activity', a)}</div>
+  <div class="grid two">
+    ${card('Details', `<p>${esc(a.description)}</p><h3 class="mt">Instructions for students</h3><p class="pre mt">${esc(a.instructions)}</p>
+      <dl class="facts"><div><dt>Opens</dt><dd>${fdt(a.startsAt)}</dd></div><div><dt>Due</dt><dd>${fdt(a.dueAt)}</dd></div><div><dt>Session code</dt><dd>${open ? `<span class="code code-sm">${open.code}</span>` : 'Not running'}</dd></div></dl>`)}
+    ${card('Submission overview', `<p class="small mono">${p.n} of ${p.total} submitted (${p.pct}%)</p>${bar(p.pct, 'Submitted')}
+      <p class="small muted mt">${subs.filter(x => x.status === 'pending').length} waiting for review</p>`, subs.some(x => x.status === 'pending') ? `<button type="button" class="btn btn-sm" data-action="sub-review-all" data-id="${a.id}">${I('check')}Mark all reviewed</button>` : '')}
+  </div>
+  ${card('Students', `<div class="table-wrap"><table class="data-table"><thead><tr><th>Student</th><th>Response</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${rows || `<tr><td class="empty-cell" colspan="4">${empty('users', 'No students in this section', 'Add students to this section and they will appear here.')}</td></tr>`}</tbody></table></div>`)}`;
+}
+
+/* -- Examination editor -- */
+function examSettingsForm(ex) {
+  const locked = ex.status === 'completed';
+  return `<form data-form="exam-settings" novalidate><fieldset class="plain" ${locked ? 'disabled' : ''}>
+    <input type="hidden" name="id" value="${ex.id}">
+    <label class="field"><span class="label">Title</span><input class="input" name="title" value="${esc(ex.title)}" maxlength="80"></label>
+    <label class="field"><span class="label">Instructions for students</span><textarea class="textarea" name="instructions" rows="3" maxlength="400">${esc(ex.instructions)}</textarea></label>
+    <div class="row-2"><label class="field"><span class="label">Duration (minutes)</span><input class="input mono" type="number" name="duration" min="1" max="120" value="${ex.duration}"></label>
+    <label class="field"><span class="label">Passing score (%)</span><input class="input mono" type="number" name="passing" min="0" max="100" value="${ex.passing}"></label></div>
+    <div class="row-2"><label class="field"><span class="label">Attempts</span><select class="select" name="attempts"><option value="1" selected>1 attempt</option><option disabled>2 attempts (planned)</option></select></label>
+    <label class="field"><span class="label">Audience</span><select class="select" name="target">${secOpts(ex.target)}</select></label></div>
+    <div class="row-2"><label class="field"><span class="label">Available from</span><input class="input" type="datetime-local" name="startsAt" value="${toLocalInput(ex.startsAt)}"></label>
+    <label class="field"><span class="label">Available until</span><input class="input" type="datetime-local" name="dueAt" value="${toLocalInput(ex.dueAt)}"></label></div>
+    <button type="submit" class="btn btn-primary">Save settings</button>
+  </fieldset></form>`;
+}
+function questionsList(ex, locked) {
+  if (!ex.questions.length) return empty('file', 'No questions yet', 'Add multiple-choice or short-text questions. Students see them in the order listed here.');
+  return `<ol class="stack-list">${ex.questions.map((q, j) => `<li class="qitem">
+    <div class="qhead"><span class="qnum mono">${j + 1}</span><span class="tag">${q.type === 'mc' ? 'Multiple choice' : 'Short text'}</span></div>
+    <p class="strong">${esc(q.prompt)}</p>
+    ${q.type === 'mc' ? `<ol class="qopts">${q.options.map((o, k) => `<li class="${k === q.correct ? 'is-correct' : ''}"><span class="opt-letter">${'ABCD'[k]}</span><span>${esc(o)}</span>${k === q.correct ? '<span class="badge b-ok">Answer key</span>' : ''}</li>`).join('')}</ol>` : `<p class="small muted">Accepted answers: ${esc(q.keys.join(', '))}</p>`}
+    <div class="btn-row qactions">
+      <button type="button" class="icon-btn sm" data-action="q-move" data-exam="${ex.id}" data-id="${q.id}" data-dir="-1" aria-label="Move question ${j + 1} up" title="Move up" ${locked || j === 0 ? 'disabled' : ''}>${I('arrow-up')}</button>
+      <button type="button" class="icon-btn sm" data-action="q-move" data-exam="${ex.id}" data-id="${q.id}" data-dir="1" aria-label="Move question ${j + 1} down" title="Move down" ${locked || j === ex.questions.length - 1 ? 'disabled' : ''}>${I('arrow-down')}</button>
+      <button type="button" class="btn btn-sm" data-action="q-edit" data-exam="${ex.id}" data-id="${q.id}" ${locked ? 'disabled' : ''}>${I('edit')}Edit</button>
+      <button type="button" class="btn btn-sm btn-danger" data-action="q-delete" data-exam="${ex.id}" data-id="${q.id}" ${locked ? 'disabled' : ''}>${I('trash')}Remove</button>
+    </div></li>`).join('')}</ol>`;
+}
+function vExam(id) {
+  const ex = byId(S.exams, id); if (!ex) return notFound('This examination no longer exists.', 'teacher/exams');
+  const locked = ex.status === 'active' || ex.status === 'completed';
+  const subs = subsFor('exam', ex.id);
+  const avg = subs.length ? Math.round(subs.reduce((a, b) => a + b.percent, 0) / subs.length) : null;
+  const passRate = subs.length ? Math.round(subs.filter(x => x.passed).length / subs.length * 100) : null;
+  const addBtns = `<button type="button" class="btn btn-sm" data-action="q-add" data-exam="${ex.id}" data-type="mc" ${locked ? 'disabled' : ''}>${I('plus')}Multiple choice</button><button type="button" class="btn btn-sm" data-action="q-add" data-exam="${ex.id}" data-type="text" ${locked ? 'disabled' : ''}>${I('plus')}Short text</button>`;
+  return `${backLink('#teacher/exams', 'All examinations')}
+  <div class="page-head"><div class="grow"><p class="small muted">Examination · section ${ex.target}</p><h1>${esc(ex.title)}</h1></div>${badge(dStatus('exam', ex))}</div>
+  <div class="btn-row">${itemActions('exam', ex)}</div>
+  ${locked ? notice('warn', 'Questions are locked while this exam is active or completed.') : ''}
+  <div class="grid two">
+    ${card('Exam settings', examSettingsForm(ex))}
+    <div class="grid">
+      ${card(`Questions (${ex.questions.length})`, questionsList(ex, locked), addBtns)}
+      ${card('Results so far', subs.length ? `<p class="small mono">${subs.length} submitted · average ${avg}% · pass rate ${passRate}%</p><div class="mt"><a class="btn btn-sm" href="#teacher/results">Open results</a></div>` : empty('trophy', 'No submissions yet', 'Results appear after students submit.'))}
+    </div>
+  </div>`;
+}
+
+/* -- Sessions -- */
+function sessionCard(s) {
+  const st = eff(s);
+  return `<article class="card"><div class="card-head"><div><p class="xs muted">${s.refType === 'exam' ? 'Examination' : 'Activity'} · ${s.target}</p><h3><a href="#teacher/session/${s.id}">${esc(s.title)}</a></h3></div>${badge(st)}</div>
+  <div class="row-between"><span class="code">${s.code}</span><button type="button" class="btn btn-sm" data-action="copy-code" data-code="${s.code}">${I('copy')}Copy</button></div>
+  <p class="small muted mt">${s.joined.length} joined · ${st === 'ended' ? 'Ended ' + rel(s.endedAt) : st === 'expired' ? 'Expired' : 'Expires ' + rel(s.expiresAt)}</p></article>`;
+}
+function vSessions() {
+  const counts = ['ready', 'live', 'paused', 'ended'].map(k => [k, S.sessions.filter(s => eff(s) === k).length]);
+  const addBtn = `<button type="button" class="btn btn-primary" data-action="new-session">${I('plus')}New session</button>`;
+  return `<div class="toolbar"><div class="chips grow">${counts.map(([k, n]) => `<span class="badge b-muted">${STATUS[k][0]} <b class="mono">${n}</b></span>`).join('')}</div>${addBtn}</div>
+  ${S.sessions.length ? `<div class="grid cards">${S.sessions.map(sessionCard).join('')}</div>` : empty('radio', 'No sessions yet', 'Create a session from an activity or examination. Students join with the code.', addBtn)}`;
+}
+function vSession(id) {
+  const s = byId(S.sessions, id); if (!s) return notFound('This session no longer exists.', 'teacher/sessions');
+  const st = eff(s), ended = s.state === 'ended';
+  const roster = studentsIn(s.target), subs = S.submissions.filter(x => x.sessionId === s.id);
+  const responded = roster.filter(x => subs.some(y => y.studentId === x.id)).length;
+  const joinedN = roster.filter(x => s.joined.includes(x.id)).length;
+  const pct = joinedN ? Math.round(responded / joinedN * 100) : 0;
+  const exSubs = subs.filter(x => x.type === 'exam');
+  const avg = exSubs.length ? Math.round(exSubs.reduce((a, b) => a + b.percent, 0) / exSubs.length) : null;
+  const controls = [];
+  if (s.state === 'ready') controls.push(`<button type="button" class="btn btn-primary" data-action="session-start" data-id="${s.id}">${I('play')}Start</button>`);
+  if (s.state === 'live') controls.push(`<button type="button" class="btn" data-action="session-pause" data-id="${s.id}">${I('pause')}Pause</button>`);
+  if (s.state === 'paused') controls.push(`<button type="button" class="btn btn-primary" data-action="session-resume" data-id="${s.id}">${I('play')}Resume</button>`);
+  if (!ended) controls.push(`<button type="button" class="btn btn-danger" data-action="session-end" data-id="${s.id}">${I('stop')}End session</button>`);
+  const rows = roster.map(x => {
+    const j = s.joined.includes(x.id), mine = subs.find(y => y.studentId === x.id);
+    return `<tr><td data-label="Student" class="cell-main">${esc(x.name)}</td>
+      <td data-label="Joined">${badge(j ? 'joined' : 'notjoined')}</td>
+      <td data-label="Response">${mine ? badge(s.refType === 'exam' ? 'submitted' : mine.status) : badge('waiting')}</td>
+      <td data-label="Score" class="mono">${mine && mine.type === 'exam' ? `${mine.score}/${mine.total} · ${mine.percent}%` : '—'}</td></tr>`;
+  }).join('');
+  return `${backLink('#teacher/sessions', 'All sessions')}
+  <div class="page-head"><div class="grow"><p class="small muted">${s.refType === 'exam' ? 'Examination' : 'Activity'} · section ${s.target}</p><h1>${esc(s.title)}</h1></div>${badge(st)}</div>
+  ${notice('warn', '<strong>Simulated session.</strong> Joins, submissions, and status changes are simulated in this browser. No real Wi-Fi clients are connected to an ESP32-S3.')}
+  <div class="btn-row">${controls.join('')}</div>
+  <div class="grid two">
+    ${card('Join information', `<div class="join-box"><p class="xs muted">Session code</p><p class="code code-lg">${s.code}</p><button type="button" class="btn btn-sm" data-action="copy-code" data-code="${s.code}">${I('copy')}Copy code</button></div>
+      <ol class="steps"><li>Open SNTCH on the Android student app.</li><li>Choose Join session and enter the code.</li><li>Wait for your teacher to start the session.</li></ol>
+      <div class="qr-box" role="img" aria-label="QR placeholder. This is not a scannable code."><span>QR placeholder</span></div>
+      <p class="xs muted">Decorative placeholder. It does not encode this session and cannot be scanned.</p>
+      <p class="small muted mt">${ended ? 'Session closed.' : `Expires ${rel(s.expiresAt)} (${fdt(s.expiresAt)}).`}</p>`)}
+    ${card('Live summary (simulated)', `<div class="mini-stats"><div><span class="xs muted">Joined</span><b class="mono">${joinedN}/${roster.length}</b></div><div><span class="xs muted">Responded</span><b class="mono">${responded}</b></div><div><span class="xs muted">Average</span><b class="mono">${avg === null ? '—' : avg + '%'}</b></div></div>
+      <p class="small muted mt">Responded, of joined students</p>${bar(pct, 'Responded of joined students')}
+      <p class="xs muted mt">Started ${fdt(s.startedAt)}${s.pausedAt ? ' · Paused ' + rel(s.pausedAt) : ''}${s.endedAt ? ' · Ended ' + rel(s.endedAt) : ''}</p>
+      ${!ended ? (studentsIn(s.target).length ? `<div class="btn-row mt"><button type="button" class="btn btn-sm" data-action="sim-join" data-id="${s.id}">${I('users')}Simulate a join</button><button type="button" class="btn btn-sm" data-action="sim-submit" data-id="${s.id}" ${s.state === 'live' ? '' : 'disabled'}>${I('check')}Simulate a response</button></div><p class="xs muted mt">Simulated actions create sample records in this browser.</p>` : '<p class="xs muted mt">No students in this section yet. Simulated joins and responses become available once students are added.</p>') : ''}`)}
+  </div>
+  ${card(`Participants · section ${s.target}`, `<div class="table-wrap"><table class="data-table"><thead><tr><th>Student</th><th>Joined</th><th>Response</th><th>Score</th></tr></thead><tbody>${rows || `<tr><td class="empty-cell" colspan="4">${empty('users', 'No students in this section', 'Add students to this section and they will appear here.')}</td></tr>`}</tbody></table></div>`)}`;
+}
+
+/* -- Attendance -- */
+function attList(roster, key) {
+  const q = U.attQ.trim().toLowerCase();
+  const rows = roster.filter(s => !q || (s.name + ' ' + s.number).toLowerCase().includes(q));
+  if (!rows.length) return empty('users', 'No students match', 'Clear the search to see the whole section.');
+  return rows.map(s => {
+    const st = attStatusOf(s, key);
+    return `<div class="att-row"><div class="grow"><p class="strong">${esc(s.name)}</p><p class="xs mono muted">${s.number}</p></div>
+    <div class="att-seg" role="group" aria-label="Attendance for ${esc(s.name)}">
+      ${['present', 'late', 'absent'].map(v => `<button type="button" data-action="att-set" data-id="${s.id}" data-val="${v}" data-key="${key}" aria-pressed="${st === v}">${v[0].toUpperCase() + v.slice(1)}</button>`).join('')}
+    </div></div>`;
+  }).join('');
+}
+function vAttendance() {
+  const key = U.attDate || dayKey(Date.now()), roster = studentsIn(U.attSec), c = attCounts(U.attSec, key);
+  const hist = Object.keys(S.attendance).filter(k => S.attendance[k][U.attSec]).sort().reverse().slice(0, 7);
+  return `<div class="toolbar">
+    <select class="select" data-change="att-sec" aria-label="Section">${secOpts(U.attSec)}</select>
+    <input class="input" type="date" data-change="att-date" aria-label="Attendance date" value="${key}">
+    <div class="search-field grow">${I('search')}<input class="input" type="search" data-input="att-q" aria-label="Search students" placeholder="Search students" value="${esc(U.attQ)}" autocomplete="off"></div></div>
+  <div class="grid stats">${stat('check', 'Present', c.present, 'Marked')}${stat('clock', 'Late', c.late, 'Marked')}${stat('x', 'Absent', c.absent, 'Marked')}${stat('minus', 'Not marked', c.unmarked, 'Waiting for a mark')}</div>
+  <div class="btn-row">
+    <button type="button" class="btn btn-sm" data-action="att-fill" data-date="${key}">${I('check')}Mark unmarked as ${S.settings.defaultMark}</button>
+    <button type="button" class="btn btn-sm btn-danger" data-action="att-clear" data-date="${key}">${I('refresh')}Clear section marks</button>
+    <button type="button" class="btn btn-sm" data-action="att-export" data-date="${key}">${I('download')}Export CSV</button></div>
+  <div class="grid two">
+    ${card(`Roster · section ${U.attSec} · ${key}`, `<div id="att-list">${attList(roster, key)}</div>`)}
+    ${card('Recent history', hist.length ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Present</th><th>Late</th><th>Absent</th><th>Rate</th></tr></thead><tbody>${hist.map(k => { const h = attCounts(U.attSec, k), m = attMarkedCount(h); return `<tr><td data-label="Date" class="cell-main mono">${k}</td><td data-label="Present">${h.present}</td><td data-label="Late">${h.late}</td><td data-label="Absent">${h.absent}</td><td data-label="Rate" class="mono">${m ? Math.round((h.present + h.late) / m * 100) : 0}%</td></tr>`; }).join('')}</tbody></table></div>` : empty('calendar', 'No history yet', 'Saved attendance dates appear here.'))}
+  </div>`;
+}
+
+/* -- Results and history -- */
+function resultRows() {
+  let rows = S.submissions.filter(x => x.type === 'exam');
+  if (U.resExam !== 'all') rows = rows.filter(x => x.refId === U.resExam);
+  if (U.resStatus === 'passed') rows = rows.filter(x => x.passed);
+  if (U.resStatus === 'failed') rows = rows.filter(x => !x.passed);
+  if (U.resStatus === 'timeout') rows = rows.filter(x => x.timeout);
+  const q = U.resQ.trim().toLowerCase();
+  if (q) rows = rows.filter(x => ((studentById(x.studentId) || {}).name || '').toLowerCase().includes(q));
+  const sorters = {
+    recent: (a, b) => b.submittedAt - a.submittedAt, high: (a, b) => b.percent - a.percent, low: (a, b) => a.percent - b.percent,
+    name: (a, b) => ((studentById(a.studentId) || {}).name || '').localeCompare((studentById(b.studentId) || {}).name || '')
+  };
+  return rows.sort(sorters[U.resSort] || sorters.recent);
+}
+function resultRow(x) {
+  const st = studentById(x.studentId) || {};
+  return `<tr><td data-label="Student" class="cell-main">${esc(st.name || 'Unknown')}<span class="xs muted mono">${st.number || ''}</span></td>
+  <td data-label="Exam">${esc(itemTitle('exam', x.refId))}</td>
+  <td data-label="Score" class="mono">${x.score}/${x.total}</td>
+  <td data-label="Percent" class="mono">${x.percent}%</td>
+  <td data-label="Status">${badge(x.passed ? 'passed' : 'failed')}${x.timeout ? ' <span class="badge b-warn">Timed out</span>' : ''}</td>
+  <td data-label="Completed" class="mono xs">${fdt(x.submittedAt)}</td>
+  <td class="actions"><button type="button" class="btn btn-sm" data-action="result-detail" data-id="${x.id}">${I('eye')}Details</button></td></tr>`;
+}
+function distribution(rows) {
+  const b = [[0, 19, '0–19'], [20, 39, '20–39'], [40, 59, '40–59'], [60, 79, '60–79'], [80, 100, '80–100']];
+  const counts = b.map(([lo, hi]) => rows.filter(x => x.percent >= lo && x.percent <= hi).length);
+  const max = Math.max(1, ...counts);
+  return `<div class="dist" role="img" aria-label="Score distribution: ${b.map((r, i) => `${r[2]} percent, ${counts[i]} results`).join('; ')}">${b.map((r, i) => `<div class="dist-col"><span class="mono xs">${counts[i]}</span><div class="dist-bar" style="height:${Math.round(counts[i] / max * 100)}%"></div><span class="xs muted">${r[2]}</span></div>`).join('')}</div>`;
+}
+function pastSessions() {
+  const ended = S.sessions.filter(s => s.state === 'ended');
+  if (!ended.length) return empty('radio', 'No past sessions', 'Ended sessions and their summaries appear here.');
+  return `<ul class="list">${ended.map(s => {
+    const subs = S.submissions.filter(x => x.sessionId === s.id), ex = subs.filter(x => x.type === 'exam');
+    const avg = ex.length ? Math.round(ex.reduce((a, b) => a + b.percent, 0) / ex.length) : null;
+    return `<li class="list-item"><div class="grow"><a class="strong" href="#teacher/session/${s.id}">${esc(s.title)}</a><div class="small muted">${s.joined.length} joined · ${subs.length} responses · ended ${rel(s.endedAt)}</div></div><span class="mono small">${avg === null ? '—' : avg + '% avg'}</span></li>`;
+  }).join('')}</ul>`;
+}
+function resultsArea() {
+  const rows = resultRows(), all = S.submissions.filter(x => x.type === 'exam');
+  return `<div class="grid two">${card('Score distribution', distribution(rows), `<span class="xs muted">${rows.length} of ${all.length} shown</span>`)}${card('Past sessions', pastSessions())}</div>
+  ${card('Exam results', rows.length ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Student</th><th>Exam</th><th>Score</th><th>%</th><th>Status</th><th>Completed</th><th><span class="sr-only">Details</span></th></tr></thead><tbody>${rows.map(resultRow).join('')}</tbody></table></div>` : empty('trophy', 'No results match', 'Change the filters or search, or wait for submissions.'))}`;
+}
+function vResults() {
+  const exOpts = [['all', 'All examinations'], ...S.exams.map(e => [e.id, e.title])];
+  return `<div class="toolbar">
+    <div class="search-field grow">${I('search')}<input class="input" type="search" data-input="res-q" aria-label="Search by student" placeholder="Search by student name" value="${esc(U.resQ)}" autocomplete="off"></div>
+    <select class="select" data-change="res-exam" aria-label="Examination">${opts(exOpts, U.resExam)}</select>
+    <select class="select" data-change="res-status" aria-label="Status">${opts([['all', 'Any status'], ['passed', 'Passed'], ['failed', 'Failed'], ['timeout', 'Timed out']], U.resStatus)}</select>
+    <select class="select" data-change="res-sort" aria-label="Sort">${opts([['recent', 'Newest first'], ['high', 'Highest percent'], ['low', 'Lowest percent'], ['name', 'Name A–Z']], U.resSort)}</select>
+    <button type="button" class="btn" data-action="res-export">${I('download')}Export CSV</button></div>
+  <div id="res-area">${resultsArea()}</div>`;
+}
+
+/* -- Device and network (all readings simulated) -- */
+function diagChecks() {
+  const d = S.device, n = connectedClients(), cap = S.settings.capacity, age = Date.now() - d.lastSync;
+  return [
+    { label: 'Controller reachable', res: d.status === 'connected' || d.status === 'syncing' ? 'pass' : 'fail', note: `Status: ${STATUS[d.status][0]} (simulated)` },
+    { label: 'Access point broadcasting', res: d.status === 'connected' ? 'pass' : d.status === 'syncing' ? 'warn' : 'fail', note: d.ssid ? `Network ${d.ssid}, channel ${d.channel}` : 'No network configured yet' },
+    { label: 'Clients within target capacity', res: n > cap ? 'fail' : n > cap * 0.9 ? 'warn' : 'pass', note: `${n} of ${cap} target (not a verified limit)` },
+    { label: 'Storage headroom', res: d.storage >= 95 ? 'fail' : d.storage >= 85 ? 'warn' : 'pass', note: `${d.storage}% used (simulated)` },
+    { label: 'Last synchronization', res: age > 30 * MIN ? 'fail' : age > 10 * MIN ? 'warn' : 'pass', note: d.lastSync ? `Last sync ${rel(d.lastSync)}` : 'No sync recorded yet' },
+    { label: 'Optional TFT display', res: 'na', note: 'Hardware not defined. Not required for classroom use.' },
+    { label: 'Physical buttons and buzzer', res: 'na', note: 'Planned hardware. Not configurable from the browser.' }
+  ];
+}
+function vDevice() {
+  const d = S.device, n = connectedClients(), cap = S.settings.capacity, running = U.diag;
+  return `${notice('warn', '<strong>All readings on this screen are simulated.</strong> Real access-point range, client compatibility, memory use, and concurrent exam traffic must be tested on hardware.')}
+  <div class="grid two">
+    ${card('Controller (ESP32-S3, simulated)', `<div class="dev-hero"><span class="dev-ico">${I('cpu')}</span><div class="grow"><h2>SNTCH controller</h2><p class="small muted">Local Wi-Fi network · no internet needed</p></div>${badge(d.status)}</div>
+      <dl class="facts"><div><dt>Local network (SSID)</dt><dd class="mono">${esc(d.ssid)}</dd></div><div><dt>Controller IP</dt><dd class="mono">${esc(d.ip)}</dd></div><div><dt>Wi-Fi channel</dt><dd class="mono">${d.channel}</dd></div><div><dt>Last sync</dt><dd>${rel(d.lastSync)}</dd></div><div><dt>Clients (simulated)</dt><dd class="mono">${n} of ${cap} target</dd></div><div><dt>Firmware</dt><dd class="mono">${esc(d.firmware)}</dd></div></dl>
+      <p class="small muted mt">Storage used (simulated): <b class="mono">${d.storage}%</b></p>${bar(d.storage, 'Simulated storage used')}`,
+      `<button type="button" class="btn btn-sm ${running ? 'is-loading' : ''}" data-action="dev-diag" ${running ? 'disabled' : ''}>${I('refresh')}${running ? 'Running…' : 'Run diagnostics'}</button>`)}
+    ${card('Simulate controller state', `<label class="field"><span class="label">Status (simulated)</span><select class="select" data-change="dev-status">${opts(DEV_STATUSES.map(s => [s, STATUS[s][0]]), d.status)}</select><span class="hint">Changes what this prototype shows. It does not command real hardware.</span></label>
+      ${running ? `<div class="diag-run" role="status"><p class="small">${DIAG_STEPS[U.diag.step] || 'Finishing'}…</p>${bar(Math.round(U.diag.step / DIAG_STEPS.length * 100), 'Diagnostics progress')}<div class="skel"></div></div>` : ''}`)}
+  </div>
+  ${card('Diagnostics (simulated)', `<div class="table-wrap"><table class="data-table"><thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead><tbody>${diagChecks().map(c => `<tr><td data-label="Check" class="cell-main">${c.label}</td><td data-label="Result">${badge(c.res)}</td><td data-label="Detail" class="small">${esc(c.note)}</td></tr>`).join('')}</tbody></table></div>`)}
+  <div class="grid two">
+    ${card('Local network (local only)', `<form data-form="device" novalidate><label class="field"><span class="label">Network name (SSID)</span><input class="input mono" name="ssid" maxlength="32" value="${esc(d.ssid)}"><span class="hint">Saved locally. Changing it here does not reconfigure the ESP32-S3.</span></label>
+      <div class="row-2"><label class="field"><span class="label">Controller IP</span><input class="input mono" name="ip" value="${esc(d.ip)}" inputmode="decimal"></label><label class="field"><span class="label">Wi-Fi channel</span><input class="input mono" type="number" name="channel" min="1" max="13" value="${d.channel}"></label></div>
+      <button type="submit" class="btn btn-primary">Save locally</button></form>`)}
+    ${card('Optional hardware (planned)', `<ul class="list"><li class="list-item"><div class="grow">Small TFT status display</div>${badge('planned')}</li><li class="list-item"><div class="grow">Physical buttons and buzzer</div>${badge('planned')}</li></ul><p class="xs muted mt">Normal teacher and student workflows do not depend on this hardware.</p>`)}
+  </div>`;
+}
+
+/* -- Settings (each control saves locally or is marked planned) -- */
+function vSettings() {
+  const s = S.settings, dev = S.device;
+  const field = (label, inner, hint = '') => `<label class="field"><span class="label">${label}</span>${inner}${hint ? `<span class="hint">${hint}</span>` : ''}</label>`;
+  const sw = (key, label) => `<label class="check"><input type="checkbox" data-change="setting" data-setting="${key}" ${s[key] ? 'checked' : ''}><span>${label}</span></label>`;
+  return `${notice('info', 'Each setting either works in this prototype or is marked planned. Changes save to this browser immediately.')}
+  <div class="grid two">
+    ${card('General', `${field('System name', `<input class="input" data-change="setting" data-setting="systemName" value="${esc(s.systemName)}" maxlength="40">`)}
+      ${field('Date format', `<select class="select" data-change="setting" data-setting="dateFormat">${opts([['mdy', 'Oct 21, 2026'], ['iso', '2026-10-21'], ['dmy', '21/10/2026']], s.dateFormat)}</select>`)}
+      ${field('Appearance', `<select class="select" data-change="setting" data-setting="theme">${opts([['light', 'Light (Forest Tech default)'], ['dark', 'Dark'], ['system', 'Match this device']], s.theme)}</select>`)}
+      ${field('Language', '<select class="select" disabled><option>English</option></select>', 'More languages are planned.')}`)}
+    ${card('Classroom', `${field('Class name', `<input class="input" data-change="setting" data-setting="className" value="${esc(s.className)}" maxlength="60">`)}
+      ${field('Default section', `<select class="select" data-change="setting" data-setting="defaultSection">${secOpts(s.defaultSection)}</select>`)}
+      ${field('Intended student capacity', `<input class="input mono" type="number" min="1" max="50" data-change="setting" data-setting="capacity" value="${s.capacity}">`, 'Design target of 40–50 students. Not a verified hardware limit.')}`)}
+  </div>
+  <div class="grid two">
+    ${card('Examinations', `${field('Default duration (minutes)', `<input class="input mono" type="number" min="1" max="120" data-change="setting" data-setting="defaultDuration" value="${s.defaultDuration}">`)}
+      ${field('Passing score (%)', `<input class="input mono" type="number" min="0" max="100" data-change="setting" data-setting="passingScore" value="${s.passingScore}">`)}
+      ${field('Question order', '<select class="select" disabled><option>Fixed order (available)</option><option>Shuffle (planned)</option></select>', 'Shuffling is planned, not implemented.')}
+      ${sw('showCorrect', 'Show correct answers after submission')}
+      ${sw('confirmSubmit', 'Ask for confirmation before submitting')}`)}
+    ${card('Attendance', `${field('Default mark for unmarked students', `<select class="select" data-change="setting" data-setting="defaultMark">${opts([['present', 'Present'], ['late', 'Late'], ['absent', 'Absent']], s.defaultMark)}</select>`)}
+      <label class="check disabled-row"><input type="checkbox" disabled><span>Auto-mark absent when a session ends</span></label>${badge('planned')}`)}
+  </div>
+  <div class="grid two">
+    ${card('Network', `<dl class="facts"><div><dt>Network name (SSID)</dt><dd class="mono">${esc(dev.ssid)}</dd></div><div><dt>Controller IP</dt><dd class="mono">${esc(dev.ip)}</dd></div><div><dt>Connection</dt><dd>${badge(dev.status)}</dd></div></dl>
+      <p class="small muted mt">Troubleshooting: confirm the phone is on the SNTCH Wi-Fi, move closer to the controller, then run diagnostics.</p>`, `<a class="btn btn-sm" href="#teacher/device">Edit on Device &amp; network</a>`)}
+    ${card('Security and privacy', `<label class="check"><input type="checkbox" checked disabled><span>Require a valid session code to join</span></label>
+      <p class="xs muted hint-indent">Always on in this prototype. Arbitrary codes are never accepted.</p>
+      <p class="small mt">Local data privacy: records and preferences stay in this browser's local storage. Nothing is sent to a server, the internet, or the controller.</p>
+      <p class="xs muted mt">Browser-based checks are not tamper-proof proctoring.</p>`)}
+  </div>
+  <div class="grid two">
+    ${card('Hardware', `<p class="small">Controller: ESP32-S3. Status shown here is simulated.</p>
+      ${field('Display and button configuration', '<select class="select" disabled><option>Not defined yet</option></select>', 'Planned hardware decision.')}
+      <p class="xs muted">${badge('planned')}</p>`)}
+    ${card('Data', '<p class="small">Clears every record added in this browser and returns the app to its empty starting state.</p>', `<button type="button" class="btn btn-sm btn-danger" data-action="reset-demo">${I('refresh')}Clear all data</button>`)}
+  </div>`;
+}
+
+/* ===== 10. Teacher lifecycle: sessions and items ===== */
+function setSessionState(s, to) {
+  const from = s.state, now = Date.now();
+  const allowed = { ready: ['live', 'ended'], live: ['paused', 'ended'], paused: ['live', 'ended'], ended: [] };
+  if (!(allowed[from] || []).includes(to)) { toast(`A ${STATUS[from][0].toLowerCase()} session cannot move to ${STATUS[to][0].toLowerCase()}.`, 'error'); return false; }
+  if (to === 'live' && eff(s) === 'expired') { toast('This session has expired. Create a new session.', 'error'); return false; }
+  s.state = to;
+  if (to === 'live' && !s.startedAt) s.startedAt = now;
+  if (to === 'live') s.pausedAt = null;
+  if (to === 'paused') s.pausedAt = now;
+  if (to === 'ended') { s.endedAt = now; s.pausedAt = null; }
+  const item = getItem(s.refType, s.refId);
+  if (item) { if (to === 'live') item.status = 'active'; if (to === 'ended') item.status = 'completed'; }
+  const verb = to === 'live' ? (from === 'paused' ? 'resumed' : 'started') : to === 'paused' ? 'paused' : 'ended';
+  logEvent(`Session ${s.code} ${verb}`, to === 'ended' ? 'info' : to === 'paused' ? 'warn' : 'ok');
+  return true;
+}
+function createSession({ refType, refId, title, expiryMin, startNow }) {
+  const item = getItem(refType, refId), now = Date.now();
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let code;
+  do { code = 'SNT-' + Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join(''); } while (S.sessions.some(x => x.code === code));
+  const s = { id: uid('ses'), code, title: title || item.title, refType, refId, target: item.target, state: startNow ? 'live' : 'ready', createdAt: now, startedAt: startNow ? now : null, pausedAt: null, endedAt: null, expiresAt: now + expiryMin * MIN, joined: [] };
+  S.sessions.unshift(s);
+  item.status = startNow ? 'active' : 'scheduled';
+  logEvent(`Session ${code} created for ${s.title}`);
+  return s;
+}
+function itemStart(type, id) {
+  const it = getItem(type, id); if (!it) return;
+  if (it.status === 'draft') return toast('Schedule or publish this before starting a session.', 'warn');
+  if (it.status === 'completed') return toast('This item is closed. Create a new one to run it again.', 'warn');
+  if (sessionOpenFor(type, id)) return toast('A session is already open for this item.', 'info');
+  if (type === 'exam' && !it.questions.length) return toast('Add at least one question first.', 'error');
+  const s = createSession({ refType: type, refId: id, expiryMin: type === 'exam' ? it.duration + 30 : 120, startNow: true });
+  toast(`Session ${s.code} is live.`);
+  commit();
+}
+function itemPause(type, id) {
+  const s = sessionOpenFor(type, id); if (!s) return;
+  setSessionState(s, s.state === 'paused' ? 'live' : 'paused');
+  commit();
+}
+function itemClose(type, id) {
+  const it = getItem(type, id), s = sessionOpenFor(type, id);
+  confirmBox({
+    title: `Close ${type === 'exam' ? 'examination' : 'activity'}?`,
+    message: `Closing "${esc(it.title)}" ends its session. Students still answering are submitted automatically (simulated).`,
+    action: 'Close', danger: true,
+    onYes: () => { if (s) setSessionState(s, 'ended'); else it.status = 'completed'; commit(); }
+  });
+}
+function itemDelete(type, id) {
+  const it = getItem(type, id);
+  if (sessionOpenFor(type, id)) return toast('Close the open session before deleting.', 'error');
+  if (S.attempt && S.attempt.status === 'in-progress' && S.attempt.examId === id) return toast('A student has an exam in progress for this item.', 'error');
+  confirmBox({
+    title: `Delete ${type === 'exam' ? 'examination' : 'activity'}?`,
+    message: `"${esc(it.title)}" and its submissions will be removed from this browser.`,
+    action: 'Delete', danger: true,
+    onYes: () => {
+      if (type === 'exam') S.exams = S.exams.filter(x => x.id !== id); else S.activities = S.activities.filter(x => x.id !== id);
+      S.submissions = S.submissions.filter(x => !(x.type === type && x.refId === id));
+      const gone = S.sessions.filter(s => s.refType === type && s.refId === id).map(s => s.id);
+      S.sessions = S.sessions.filter(s => !gone.includes(s.id));
+      if (gone.includes(S.student.studentSession)) S.student.studentSession = null;
+      const onDetail = routeIs('teacher', type === 'exam' ? 'exam' : 'activity') && route().id === id;
+      logEvent(`Deleted: ${it.title}`, 'warn');
+      if (onDetail) location.hash = type === 'exam' ? '#teacher/exams' : '#teacher/activities';
+      commit(); toast('Deleted from this browser.');
+    }
+  });
+}
+function publishExam(id) {
+  const ex = byId(S.exams, id); if (!ex) return;
+  if (!ex.questions.length) return toast('Add at least one question before publishing.', 'error');
+  confirmBox({
+    title: 'Publish examination?',
+    message: `"${esc(ex.title)}" becomes Scheduled and can be started in a session. You can still edit settings until it is active.`,
+    action: 'Publish',
+    onYes: () => { ex.status = 'scheduled'; logEvent(`Published: ${ex.title}`); commit(); toast('Examination published.'); }
+  });
+}
+function previewItem(type, id) {
+  const it = getItem(type, id); if (!it) return;
+  const body = type === 'exam'
+    ? (it.questions.map((q, j) => `<div class="review-row"><span class="xs muted">Question ${j + 1} · ${q.type === 'mc' ? 'Multiple choice' : 'Short text'}</span><p class="strong">${esc(q.prompt)}</p>${q.type === 'mc' ? `<ol class="qopts">${q.options.map((o, k) => `<li class="${k === q.correct ? 'is-correct' : ''}"><span class="opt-letter">${'ABCD'[k]}</span>${esc(o)}</li>`).join('')}</ol>` : `<p class="small muted">Answer key: ${esc(q.keys.join(', '))}</p>`}</div>`).join('') || '<p class="muted">No questions yet.</p>')
+    : `<p class="pre">${esc(it.instructions)}</p><p class="small muted mt">Due ${fdt(it.dueAt)}</p>`;
+  openModal({ title: `Preview: ${esc(it.title)}`, large: true, body: `<p class="xs muted">Preview of what students see. Answer keys are visible only to teachers.</p>${body}`, foot: '<button type="button" class="btn btn-primary" data-action="modal-close">Close</button>' });
+}
+
+/* ===== 11. Shared review rendering (teacher and student) ===== */
+function reviewRows(ex, answers, showKey = true) {
+  return ex.questions.map((q, j) => {
+    const a = answers[q.id], unanswered = a === undefined || a === '';
+    const ok = !unanswered && (q.type === 'mc' ? a === q.correct : q.keys.some(k => k.toLowerCase() === String(a).trim().toLowerCase()));
+    const shown = unanswered ? 'No answer' : q.type === 'mc' ? q.options[a] : a;
+    const key = q.type === 'mc' ? q.options[q.correct] : q.keys.join(' / ');
+    return `<div class="review-row"><span class="xs muted">Question ${j + 1}</span><p class="strong">${esc(q.prompt)}</p><p class="small">Answer: ${esc(shown)} ${badge(ok ? 'pass' : 'fail')}</p>${showKey ? `<p class="xs muted">Correct answer: ${esc(key)}</p>` : ''}</div>`;
+  }).join('');
+}
+function openExamReview(x, teacherView) {
+  const ex = byId(S.exams, x.refId), st = studentById(x.studentId);
+  const showKey = teacherView || S.settings.showCorrect;
+  openModal({
+    title: esc(ex ? ex.title : 'Examination'), large: true,
+    body: `<p class="small">${teacherView && st ? esc(st.name) + ' · ' : ''}Score <b class="mono">${x.score}/${x.total}</b> · <b class="mono">${x.percent}%</b> ${badge(x.passed ? 'passed' : 'failed')}</p>
+      <p class="xs muted">Submitted ${fdt(x.submittedAt)}${x.timeout ? ' · Auto-submitted (simulated timeout)' : ''}</p>
+      <div class="mt">${ex ? reviewRows(ex, x.answers, showKey) : ''}</div>`,
+    foot: '<button type="button" class="btn btn-primary" data-action="modal-close">Close</button>'
+  });
+}
+
+/* ===== 12. Modal forms (create and edit) ===== */
+function openStudentForm(s) {
+  const v = s || { name: '', number: '', section: U.rosterSec === 'all' ? '9-A' : U.rosterSec, status: 'active' };
+  openModal({
+    title: s ? 'Edit student' : 'Add student',
+    body: `<form id="student-form" data-form="student" novalidate>
+      <input type="hidden" name="id" value="${s ? s.id : ''}">
+      <label class="field"><span class="label">Full name</span><input class="input" name="name" value="${esc(v.name)}" maxlength="60" autocomplete="off"></label>
+      <label class="field"><span class="label">Student number</span><input class="input mono" name="number" value="${esc(v.number)}" placeholder="2026-0047" inputmode="numeric"><span class="hint">Format YYYY-NNNN. Must be unique.</span></label>
+      <div class="row-2"><label class="field"><span class="label">Section</span><select class="select" name="section">${secOpts(v.section)}</select></label>
+      <label class="field"><span class="label">Status</span><select class="select" name="status">${opts([['active', 'Active'], ['transferred', 'Transferred']], v.status)}</select></label></div></form>`,
+    foot: `<button type="button" class="btn" data-action="modal-close">Cancel</button><button type="submit" class="btn btn-primary" form="student-form">${s ? 'Save changes' : 'Add student'}</button>`
+  });
+}
+function openTeacherForm(t) {
+  const v = t || { name: '', subjects: [], classes: [], role: 'Subject teacher', status: 'active', perms: [] };
+  const perms = [['results', 'View results'], ['exams', 'Edit examinations'], ['attendance', 'Record attendance']];
+  openModal({
+    title: t ? 'Edit teacher' : 'Add teacher', large: true,
+    body: `<form id="teacher-form" data-form="teacher" novalidate>
+      <input type="hidden" name="id" value="${t ? t.id : ''}">
+      <label class="field"><span class="label">Full name</span><input class="input" name="name" value="${esc(v.name)}" maxlength="60"></label>
+      <label class="field"><span class="label">Subjects</span><input class="input" name="subjects" value="${esc(v.subjects.join(', '))}" maxlength="80" placeholder="Science, Biology"><span class="hint">Separate subjects with commas.</span></label>
+      <fieldset class="fieldset"><legend class="label">Assigned sections</legend>${['9-A', '9-B'].map(c => `<label class="check"><input type="checkbox" name="classes" value="${c}" ${v.classes.includes(c) ? 'checked' : ''}><span>Section ${c}</span></label>`).join('')}</fieldset>
+      <div class="row-2"><label class="field"><span class="label">Role</span><select class="select" name="role">${opts([['Class adviser', 'Class adviser'], ['Subject teacher', 'Subject teacher'], ['Department lead', 'Department lead']], v.role)}</select></label>
+      <label class="field"><span class="label">Status</span><select class="select" name="status">${opts([['active', 'Active'], ['on leave', 'On leave']], v.status)}</select></label></div>
+      <fieldset class="fieldset"><legend class="label">Permissions (UI simulation only)</legend>${perms.map(([k, l]) => `<label class="check"><input type="checkbox" name="perms" value="${k}" ${v.perms.includes(k) ? 'checked' : ''}><span>${l}</span></label>`).join('')}<p class="xs muted">Not enforced. Real access control belongs to the backend, which is out of scope here.</p></fieldset></form>`,
+    foot: `<button type="button" class="btn" data-action="modal-close">Cancel</button><button type="submit" class="btn btn-primary" form="teacher-form">Save teacher</button>`
+  });
+}
+function openActivityForm(a) {
+  const v = a || { title: '', description: '', instructions: '', target: S.settings.defaultSection, startsAt: null, dueAt: null };
+  openModal({
+    title: a ? 'Edit activity' : 'New activity', large: true,
+    body: `<form id="activity-form" data-form="activity" novalidate>
+      <input type="hidden" name="id" value="${a ? a.id : ''}">
+      <label class="field"><span class="label">Title</span><input class="input" name="title" value="${esc(v.title)}" maxlength="80"><span class="hint">Shown to students on their device.</span></label>
+      <label class="field"><span class="label">Short description</span><textarea class="textarea" name="description" rows="2" maxlength="240">${esc(v.description)}</textarea></label>
+      <label class="field"><span class="label">Instructions for students</span><textarea class="textarea" name="instructions" rows="4" maxlength="600">${esc(v.instructions)}</textarea></label>
+      <div class="row-2"><label class="field"><span class="label">Audience</span><select class="select" name="target">${secOpts(v.target)}</select></label>
+      <label class="field"><span class="label">Opens</span><input class="input" type="datetime-local" name="startsAt" value="${toLocalInput(v.startsAt)}"></label></div>
+      <label class="field"><span class="label">Due</span><input class="input" type="datetime-local" name="dueAt" value="${toLocalInput(v.dueAt)}"><span class="hint">Leave Opens empty to save as a draft.</span></label></form>`,
+    foot: `<button type="button" class="btn" data-action="modal-close">Cancel</button><button type="submit" class="btn btn-primary" form="activity-form">${a ? 'Save changes' : 'Save activity'}</button>`
+  });
+}
+function openExamForm() {
+  openModal({
+    title: 'New examination',
+    body: `<form id="exam-new-form" data-form="exam-new" novalidate>
+      <label class="field"><span class="label">Title</span><input class="input" name="title" maxlength="80" placeholder="Unit 3 Quiz"></label>
+      <div class="row-2"><label class="field"><span class="label">Audience</span><select class="select" name="target">${secOpts(U.rosterSec === '9-B' ? '9-B' : '9-A')}</select></label>
+      <label class="field"><span class="label">Duration (minutes)</span><input class="input mono" type="number" name="duration" min="1" max="120" value="${S.settings.defaultDuration}"></label></div>
+      <label class="field"><span class="label">Passing score (%)</span><input class="input mono" type="number" name="passing" min="0" max="100" value="${S.settings.passingScore}"></label>
+      <p class="small muted">Saved as a draft. Add questions, then publish before starting a session.</p></form>`,
+    foot: `<button type="button" class="btn" data-action="modal-close">Cancel</button><button type="submit" class="btn btn-primary" form="exam-new-form">Create draft</button>`
+  });
+}
+function sessionItemOptions(type) {
+  const list = (type === 'exam' ? S.exams : S.activities).filter(it => (it.status === 'scheduled' || it.status === 'active') && !sessionOpenFor(type, it.id));
+  return list.length ? list.map(it => `<option value="${it.id}">${esc(it.title)} · ${it.target}</option>`).join('') : '<option value="">No scheduled items available</option>';
+}
+function openSessionForm() {
+  openModal({
+    title: 'New session',
+    body: `<form id="session-form" data-form="session" novalidate>
+      <div class="row-2"><label class="field"><span class="label">Session type</span><select class="select" name="type" data-change="session-type">${opts([['exam', 'Examination'], ['activity', 'Activity']], 'exam')}</select></label>
+      <label class="field"><span class="label">Expires after</span><select class="select" name="expiry">${opts([['30', '30 minutes'], ['60', '1 hour'], ['120', '2 hours'], ['180', '3 hours']], '120')}</select></label></div>
+      <label class="field"><span class="label">Linked item</span><select class="select" name="refId" id="session-item">${sessionItemOptions('exam')}</select><span class="hint">Only scheduled items without an open session are listed.</span></label>
+      <label class="field"><span class="label">Session title (optional)</span><input class="input" name="title" maxlength="80" placeholder="Uses the item title if empty"></label>
+      <label class="check"><input type="checkbox" name="startNow"><span>Start immediately (otherwise the session waits as Ready)</span></label></form>`,
+    foot: `<button type="button" class="btn" data-action="modal-close">Cancel</button><button type="submit" class="btn btn-primary" form="session-form">Create session</button>`
+  });
+}
+function openQuestionForm(exId, q, type) {
+  const t = q ? q.type : type, mc = t === 'mc', o = mc ? (q ? q.options : ['', '', '', '']) : [];
+  openModal({
+    title: q ? 'Edit question' : (mc ? 'Add multiple-choice question' : 'Add short-text question'), large: true,
+    body: `<form id="question-form" data-form="question" novalidate>
+      <input type="hidden" name="exId" value="${exId}"><input type="hidden" name="qid" value="${q ? q.id : ''}"><input type="hidden" name="type" value="${t}">
+      <label class="field"><span class="label">Question</span><textarea class="textarea" name="prompt" rows="2" maxlength="200">${esc(q ? q.prompt : '')}</textarea></label>
+      ${mc ? `<fieldset class="fieldset"><legend class="label">Answer options (choose the correct one)</legend>
+        ${[0, 1, 2, 3].map(j => `<div class="opt-edit"><input type="radio" name="correct" value="${j}" aria-label="Option ${'ABCD'[j]} is correct" ${q && q.correct === j ? 'checked' : ''}><span class="opt-letter">${'ABCD'[j]}</span><input class="input" name="opt${j}" aria-label="Option ${'ABCD'[j]}" value="${esc(o[j] || '')}" maxlength="120"></div>`).join('')}
+        <p class="hint">Four options. Options must be different from each other.</p></fieldset>`
+      : `<label class="field"><span class="label">Accepted answers</span><input class="input" name="keys" value="${esc(q ? q.keys.join(', ') : '')}" maxlength="160"><span class="hint">Separate with commas. Matching ignores capital letters.</span></label>`}
+    </form>`,
+    foot: `<button type="button" class="btn" data-action="modal-close">Cancel</button><button type="submit" class="btn btn-primary" form="question-form">Save question</button>`
+  });
+}
+
+/* ===== 13. Teacher actions ===== */
+ACTIONS['nav-toggle'] = () => {
+  U.navOpen = !U.navOpen;
+  document.body.classList.toggle('nav-open', U.navOpen);
+  const b = $('.menu-btn'); if (b) b.setAttribute('aria-expanded', String(U.navOpen));
+  if (U.navOpen) { const first = $('#sidebar .snav a'); if (first) first.focus(); }
+};
+ACTIONS['nav-close'] = () => { U.navOpen = false; document.body.classList.remove('nav-open'); };
+ACTIONS['modal-close'] = () => closeModal();
+ACTIONS['confirm-yes'] = () => { const cb = CONFIRM_CB; closeModal(false); if (cb) cb(); };
+ACTIONS['set-role'] = el => { location.hash = el.dataset.role === 'student' ? '#student/home' : '#teacher/dashboard'; };
+ACTIONS['about'] = () => openModal({
+  title: 'About this prototype',
+  body: '<ul class="stack-list"><li><strong>Simulated:</strong> sessions, joins, responses, device readings, and exam timers exist only in this browser.</li><li><strong>Working here:</strong> navigation, validation, the exam flow, CSV export (a dialog with copyable text), and local data.</li><li><strong>Not included:</strong> backend, Android apps, ESP32-S3 firmware, real authentication, and tamper-proof proctoring.</li></ul>',
+  foot: '<button type="button" class="btn btn-primary" data-action="modal-close">Close</button>'
+});
+ACTIONS['reset-demo'] = () => confirmBox({
+  title: 'Clear all data?', message: 'This clears every record you added in this browser and returns the app to its empty starting state.',
+  action: 'Clear all data', danger: true,
+  onYes: () => { localStorage.removeItem(KEY); S = seed(); save(); toast('All data cleared.'); render(); }
+});
+ACTIONS['new-activity'] = () => openActivityForm();
+ACTIONS['new-exam'] = () => openExamForm();
+ACTIONS['new-session'] = () => openSessionForm();
+ACTIONS['copy-code'] = async el => {
+  const code = el.dataset.code, ok = await copyText(code);
+  if (ok) return toast(`Copied ${code}.`);
+  openModal({
+    title: 'Copy the code',
+    body: `<p>Automatic copy is unavailable in this browser. Select the code and copy it manually.</p><p class="code code-lg" id="manual-code" tabindex="0">${esc(code)}</p>`,
+    foot: '<button type="button" class="btn btn-primary" data-action="modal-close">Done</button>',
+    onReady: r => { const range = document.createRange(), node = $('#manual-code', r); range.selectNodeContents(node); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range); }
+  });
+};
+ACTIONS['result-detail'] = el => {
+  const x = byId(S.submissions, el.dataset.id); if (!x) return;
+  if (x.type === 'exam') return openExamReview(x, route().role === 'teacher');
+  openModal({ title: 'Activity response', body: `<p class="small muted">${esc(itemTitle('activity', x.refId))}</p><p class="pre mt">${esc(x.text)}</p><p class="mt">${badge(x.status)}</p>`, foot: '<button type="button" class="btn btn-primary" data-action="modal-close">Close</button>' });
+};
+
+/* Students */
+ACTIONS['student-new'] = () => openStudentForm(null);
+ACTIONS['student-edit'] = el => openStudentForm(studentById(el.dataset.id));
+ACTIONS['student-remove'] = el => {
+  const s = studentById(el.dataset.id); if (!s) return;
+  /* no signed-in student record: every student row may be removed */
+  confirmBox({
+    title: 'Remove student?', message: `${esc(s.name)} will be removed from the roster and their submissions deleted. Only this browser's local data changes.`,
+    action: 'Remove student', danger: true,
+    onYes: () => {
+      S.students = S.students.filter(x => x.id !== s.id);
+      S.submissions = S.submissions.filter(x => x.studentId !== s.id);
+      S.sessions.forEach(ss => { ss.joined = ss.joined.filter(j => j !== s.id); });
+      const onDetail = routeIs('teacher', 'student') && route().id === s.id;
+      logEvent(`Student removed: ${s.name}`, 'warn');
+      if (onDetail) location.hash = '#teacher/students';
+      commit(); toast('Student removed.');
+    }
+  });
+};
+FORMS.student = f => {
+  if (!validate(f, [{ name: 'name', req: 'Enter the full name.', max: 60 }, { name: 'number', req: 'Enter a student number.', test: v => /^\d{4}-\d{4}$/.test(v), msg: 'Use the format 2026-0001.' }])) return;
+  const d = formData(f);
+  if (S.students.some(x => x.number === d.number && x.id !== d.id)) return showErr(f, 'number', 'That student number is already on the roster.');
+  if (d.id) { Object.assign(studentById(d.id), { name: d.name.trim(), number: d.number, section: d.section, status: d.status }); logEvent(`Student updated: ${d.name.trim()}`); }
+  else { S.students.push({ id: nextId('stu', S.students), name: d.name.trim(), number: d.number, section: d.section, status: d.status }); logEvent(`Student added: ${d.name.trim()}`, 'ok'); }
+  closeModal(false); commit(); toast('Student saved.');
+};
+INPUTS['roster-q'] = el => { U.rosterQ = el.value; refreshRoster(); };
+CHANGES['roster-sec'] = el => { U.rosterSec = el.value; refreshRoster(); };
+CHANGES['roster-status'] = el => { U.rosterStatus = el.value; refreshRoster(); };
+
+/* Teachers */
+ACTIONS['teacher-new'] = () => openTeacherForm(null);
+ACTIONS['teacher-edit'] = el => openTeacherForm(byId(S.teachers, el.dataset.id));
+ACTIONS['teacher-details'] = el => {
+  const t = byId(S.teachers, el.dataset.id); if (!t) return;
+  openModal({
+    title: esc(t.name),
+    body: `<dl class="facts"><div><dt>Role</dt><dd>${esc(t.role)}</dd></div><div><dt>Subjects</dt><dd>${esc(t.subjects.join(', '))}</dd></div><div><dt>Sections</dt><dd>${t.classes.map(c => 'Section ' + c).join(', ')}</dd></div><div><dt>Status</dt><dd>${esc(t.status)}</dd></div></dl>
+      <h3 class="mt">Permissions (UI simulation)</h3><p class="small muted">${t.perms.length ? esc(t.perms.join(', ')) : 'None'}</p><p class="xs muted mt">Not enforced anywhere in this prototype.</p>`,
+    foot: '<button type="button" class="btn btn-primary" data-action="modal-close">Close</button>'
+  });
+};
+FORMS.teacher = f => {
+  if (!validate(f, [{ name: 'name', req: 'Enter the teacher’s name.', max: 60 }, { name: 'subjects', req: 'Add at least one subject.', max: 80 }])) return;
+  const d = formData(f);
+  const classes = [...f.querySelectorAll('input[name="classes"]:checked')].map(x => x.value);
+  if (!classes.length) return toast('Assign at least one section.', 'error');
+  const perms = [...f.querySelectorAll('input[name="perms"]:checked')].map(x => x.value);
+  const rec = { name: d.name.trim(), subjects: d.subjects.split(',').map(x => x.trim()).filter(Boolean), classes, role: d.role, status: d.status, perms };
+  if (d.id) Object.assign(byId(S.teachers, d.id), rec); else S.teachers.push({ id: nextId('tch', S.teachers), ...rec });
+  closeModal(false); logEvent(`Teacher saved: ${rec.name}`); commit(); toast('Teacher saved.');
+};
+INPUTS['tch-q'] = el => { U.tchQ = el.value; $('#tch-grid').innerHTML = teacherCards(); };
+CHANGES['tch-status'] = el => { U.tchStatus = el.value; $('#tch-grid').innerHTML = teacherCards(); };
+
+/* Activities and examinations */
+ACTIONS['act-edit'] = el => openActivityForm(byId(S.activities, el.dataset.id));
+ACTIONS['item-preview'] = el => previewItem(el.dataset.type, el.dataset.id);
+ACTIONS['item-start'] = el => itemStart(el.dataset.type, el.dataset.id);
+ACTIONS['item-pause'] = el => itemPause(el.dataset.type, el.dataset.id);
+ACTIONS['item-close'] = el => itemClose(el.dataset.type, el.dataset.id);
+ACTIONS['item-delete'] = el => itemDelete(el.dataset.type, el.dataset.id);
+ACTIONS['exam-publish'] = el => publishExam(el.dataset.id);
+ACTIONS['item-tab'] = el => { U.itemTab = el.dataset.val; commit(); };
+ACTIONS['item-view'] = el => { U.itemView = el.dataset.val; commit(); };
+ACTIONS['sub-review'] = el => {
+  const x = byId(S.submissions, el.dataset.id); if (!x) return;
+  x.status = 'reviewed'; logEvent(`Reviewed: ${itemTitle('activity', x.refId)}`); commit(); toast('Marked reviewed.');
+};
+ACTIONS['sub-review-all'] = el => {
+  const pend = S.submissions.filter(x => x.type === 'activity' && x.refId === el.dataset.id && x.status === 'pending');
+  if (!pend.length) return toast('Nothing is waiting for review.', 'info');
+  confirmBox({
+    title: 'Mark all reviewed?', message: `${pend.length} response${pend.length > 1 ? 's' : ''} will be marked reviewed. Feedback is not sent in this prototype.`, action: 'Mark reviewed',
+    onYes: () => { pend.forEach(x => { x.status = 'reviewed'; }); logEvent(`${pend.length} responses marked reviewed`); commit(); toast('Responses marked reviewed.'); }
+  });
+};
+INPUTS['item-q'] = el => { U.itemQ = el.value; $('#item-list').innerHTML = itemList(U.listType); };
+FORMS.activity = f => {
+  const ok = validate(f, [{ name: 'title', req: 'Give the activity a title.', max: 80 }, { name: 'instructions', req: 'Add instructions so students know what to do.', min: 10, max: 600 }]);
+  const d = formData(f), starts = fromLocalInput(d.startsAt), due = fromLocalInput(d.dueAt);
+  if (!ok) return;
+  if (starts && due && due <= starts) return showErr(f, 'dueAt', 'Due time must be after the opening time.');
+  const rec = { title: d.title.trim(), description: (d.description || '').trim(), instructions: d.instructions.trim(), target: d.target, startsAt: starts, dueAt: due };
+  if (d.id) { const a = byId(S.activities, d.id); Object.assign(a, rec); if (a.status === 'draft' && starts) a.status = 'scheduled'; logEvent(`Activity updated: ${a.title}`); }
+  else { S.activities.unshift({ id: uid('act'), ...rec, status: starts ? 'scheduled' : 'draft' }); logEvent(`Activity created: ${rec.title}`); }
+  closeModal(false); commit(); toast('Activity saved.');
+};
+FORMS['exam-new'] = f => {
+  if (!validate(f, [{ name: 'title', req: 'Give the examination a title.', max: 80 }])) return;
+  const d = formData(f), dur = Number(d.duration), pass = Number(d.passing);
+  if (!(dur >= 1 && dur <= 120)) return showErr(f, 'duration', 'Use 1 to 120 minutes.');
+  if (!(pass >= 0 && pass <= 100)) return showErr(f, 'passing', 'Use a value from 0 to 100.');
+  const ex = { id: nextId('ex', S.exams), title: d.title.trim(), instructions: 'Answer every question before you submit.', target: d.target, duration: dur, passing: pass, attempts: 1, status: 'draft', startsAt: null, dueAt: null, questions: [] };
+  S.exams.unshift(ex); logEvent(`Exam draft created: ${ex.title}`);
+  closeModal(false); save(); location.hash = `#teacher/exam/${ex.id}`;
+};
+FORMS['exam-settings'] = f => {
+  const d = formData(f), ex = byId(S.exams, d.id); if (!ex) return;
+  if (!validate(f, [{ name: 'title', req: 'Give the examination a title.', max: 80 }])) return;
+  const dur = Number(d.duration), pass = Number(d.passing);
+  if (!(dur >= 1 && dur <= 120)) return showErr(f, 'duration', 'Use 1 to 120 minutes.');
+  if (!(pass >= 0 && pass <= 100)) return showErr(f, 'passing', 'Use a value from 0 to 100.');
+  const starts = fromLocalInput(d.startsAt), due = fromLocalInput(d.dueAt);
+  if (starts && due && due <= starts) return showErr(f, 'dueAt', 'The end must be after the start.');
+  Object.assign(ex, { title: d.title.trim(), instructions: (d.instructions || '').trim(), duration: dur, passing: pass, target: d.target, startsAt: starts, dueAt: due });
+  logEvent(`Exam settings saved: ${ex.title}`); commit(); toast('Exam settings saved.');
+};
+
+/* Questions */
+ACTIONS['q-add'] = el => openQuestionForm(el.dataset.exam, null, el.dataset.type);
+ACTIONS['q-edit'] = el => { const ex = byId(S.exams, el.dataset.exam), q = ex && ex.questions.find(x => x.id === el.dataset.id); if (q) openQuestionForm(ex.id, q, q.type); };
+ACTIONS['q-move'] = el => {
+  const ex = byId(S.exams, el.dataset.exam), i = ex.questions.findIndex(x => x.id === el.dataset.id), j = i + Number(el.dataset.dir);
+  if (i < 0 || j < 0 || j >= ex.questions.length) return;
+  [ex.questions[i], ex.questions[j]] = [ex.questions[j], ex.questions[i]];
+  U.focusSel = `[data-action="q-move"][data-id="${el.dataset.id}"][data-dir="${el.dataset.dir}"]`;
+  commit();
+};
+ACTIONS['q-delete'] = el => {
+  const ex = byId(S.exams, el.dataset.exam), q = ex && ex.questions.find(x => x.id === el.dataset.id); if (!q) return;
+  confirmBox({
+    title: 'Remove question?', message: `"${esc(q.prompt)}" will be removed from this examination.`, action: 'Remove', danger: true,
+    onYes: () => { ex.questions = ex.questions.filter(x => x.id !== q.id); commit(); toast('Question removed.'); }
+  });
+};
+FORMS.question = f => {
+  const d = formData(f), ex = byId(S.exams, d.exId); if (!ex) return;
+  if (!validate(f, [{ name: 'prompt', req: 'Write the question text.', max: 200 }])) return;
+  let q;
+  if (d.type === 'mc') {
+    const opts4 = [0, 1, 2, 3].map(j => (d['opt' + j] || '').trim());
+    let bad = false;
+    opts4.forEach((t, j) => { if (!t && !bad) { bad = true; showErr(f, 'opt' + j, 'Enter this option.'); } });
+    if (bad) return;
+    if (new Set(opts4.map(t => t.toLowerCase())).size < 4) return toast('Options must be different from each other.', 'error');
+    if (d.correct === undefined) return toast('Choose the correct option.', 'error');
+    q = { id: d.qid || uid('q'), type: 'mc', prompt: d.prompt.trim(), options: opts4, correct: Number(d.correct) };
+  } else {
+    const keys = (d.keys || '').split(',').map(x => x.trim()).filter(Boolean);
+    if (!keys.length) return showErr(f, 'keys', 'Add at least one accepted answer.');
+    q = { id: d.qid || uid('q'), type: 'text', prompt: d.prompt.trim(), keys };
+  }
+  if (d.qid) { const idx = ex.questions.findIndex(x => x.id === d.qid); ex.questions[idx] = q; } else ex.questions.push(q);
+  closeModal(false); commit(); toast('Question saved.');
+};
+
+/* Sessions */
+ACTIONS['session-start'] = el => { const s = byId(S.sessions, el.dataset.id); if (s) { setSessionState(s, 'live'); commit(); } };
+ACTIONS['session-pause'] = el => { const s = byId(S.sessions, el.dataset.id); if (s) { setSessionState(s, 'paused'); commit(); } };
+ACTIONS['session-resume'] = el => { const s = byId(S.sessions, el.dataset.id); if (s) { setSessionState(s, 'live'); commit(); } };
+ACTIONS['session-end'] = el => {
+  const s = byId(S.sessions, el.dataset.id); if (!s) return;
+  confirmBox({
+    title: 'End session?', message: 'Students still answering are submitted automatically (simulated). Joined counts stay in the summary.',
+    action: 'End session', danger: true, onYes: () => { setSessionState(s, 'ended'); commit(); }
+  });
+};
+ACTIONS['sim-join'] = el => {
+  const s = byId(S.sessions, el.dataset.id); if (!s || s.state === 'ended') return;
+  const pool = studentsIn(s.target).filter(x => !s.joined.includes(x.id));
+  if (!pool.length) return toast('Everyone in this section has joined.', 'info');
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  s.joined.push(pick.id); logEvent(`[Simulated] ${pick.name} joined ${s.code}`); commit();
+  toast(`Simulated join: ${pick.name}`, 'info');
+};
+ACTIONS['sim-submit'] = el => {
+  const s = byId(S.sessions, el.dataset.id); if (!s) return;
+  if (s.state !== 'live') return toast('Simulated responses need a live session.', 'warn');
+  const pool = s.joined.filter(id => !S.submissions.some(x => x.sessionId === s.id && x.studentId === id));
+  if (!pool.length) return toast('No joined students are waiting to respond.', 'info');
+  const id = pool[0], k = Math.max(0, studentsIn(s.target).findIndex(x => x.id === id));
+  if (s.refType === 'exam') S.submissions.unshift(mkExamSub(getItem('exam', s.refId), id, s.id, k, Date.now()));
+  else S.submissions.unshift(mkActSub(getItem('activity', s.refId), id, s.id, k, Date.now(), 'pending'));
+  logEvent(`[Simulated] response from ${studentById(id).name} in ${s.code}`); commit();
+  toast('Simulated response added.', 'info');
+};
+FORMS.session = f => {
+  const d = formData(f);
+  if (!d.refId) return toast('Schedule an activity or examination first.', 'warn');
+  const s = createSession({ refType: d.type, refId: d.refId, title: (d.title || '').trim() || null, expiryMin: Number(d.expiry), startNow: !!d.startNow });
+  closeModal(false); commit(); toast(`Session ${s.code} created.`);
+};
+CHANGES['session-type'] = el => { const sel = $('#session-item'); if (sel) sel.innerHTML = sessionItemOptions(el.value); };
+INPUTS['global-q'] = el => {
+  const q = el.value.trim().toLowerCase(), box = $('#global-results');
+  if (!box) return;
+  if (!q) { box.hidden = true; box.innerHTML = ''; return; }
+  const hits = [
+    ...S.students.filter(s => (s.name + ' ' + s.number).toLowerCase().includes(q)).slice(0, 4).map(s => ({ label: s.name, meta: `Student · ${s.section}`, href: `#teacher/student/${s.id}` })),
+    ...S.activities.filter(a => a.title.toLowerCase().includes(q)).slice(0, 3).map(a => ({ label: a.title, meta: 'Activity', href: `#teacher/activity/${a.id}` })),
+    ...S.exams.filter(x => x.title.toLowerCase().includes(q)).slice(0, 3).map(x => ({ label: x.title, meta: 'Examination', href: `#teacher/exam/${x.id}` })),
+    ...S.sessions.filter(s => s.code.toLowerCase().includes(q) || s.title.toLowerCase().includes(q)).slice(0, 3).map(s => ({ label: s.title, meta: `Session · ${s.code}`, href: `#teacher/session/${s.id}` }))
+  ];
+  box.innerHTML = hits.length ? hits.map(h => `<a class="sr-item" href="${h.href}"><strong>${esc(h.label)}</strong><span class="small muted">${esc(h.meta)}</span></a>`).join('') : '<p class="small muted" style="padding:10px 12px">No matches</p>';
+  box.hidden = false;
+};
+
+/* Attendance (section and date are local UI state; marks are saved to local data) */
+ACTIONS['att-set'] = el => {
+  const id = el.dataset.id, val = el.dataset.val, key = el.dataset.key, s = studentById(id); if (!s) return;
+  const day = (S.attendance[key] = S.attendance[key] || {});
+  day[s.section] = day[s.section] || {};
+  day[s.section][id] = val;
+  U.focusSel = `[data-action="att-set"][data-id="${id}"][data-val="${val}"]`;
+  commit();
+};
+ACTIONS['att-fill'] = el => {
+  const key = el.dataset.date, sec = U.attSec;
+  confirmBox({
+    title: 'Mark unmarked students?', message: `Every unmarked student in section ${sec} is set to ${S.settings.defaultMark} for this date.`, action: 'Mark them',
+    onYes: () => {
+      const day = (S.attendance[key] = S.attendance[key] || {}), m = (day[sec] = day[sec] || {});
+      let n = 0;
+      studentsIn(sec).forEach(s => { if (!m[s.id]) { m[s.id] = S.settings.defaultMark; n++; } });
+      logEvent(`Attendance filled for ${sec}: ${n} students`); commit(); toast(`${n} students marked.`);
+    }
+  });
+};
+ACTIONS['att-clear'] = el => {
+  const key = el.dataset.date, sec = U.attSec;
+  confirmBox({
+    title: 'Clear marks for this section?', message: `Attendance marks for section ${sec} on ${key} are removed from this browser.`, action: 'Clear marks', danger: true,
+    onYes: () => { if (S.attendance[key]) S.attendance[key][sec] = {}; logEvent(`Attendance cleared for ${sec}`, 'warn'); commit(); toast('Marks cleared.'); }
+  });
+};
+ACTIONS['att-export'] = el => {
+  const key = el.dataset.date, sec = U.attSec;
+  downloadCSV(`sntch-attendance-${sec}-${key}.csv`, [['Student number', 'Name', 'Section', 'Date', 'Status'], ...studentsIn(sec).map(s => [s.number, s.name, s.section, key, attStatusOf(s, key)])]);
+};
+INPUTS['att-q'] = el => { U.attQ = el.value; $('#att-list').innerHTML = attList(studentsIn(U.attSec), U.attDate || dayKey(Date.now())); };
+CHANGES['att-sec'] = el => { U.attSec = el.value; commit(); };
+CHANGES['att-date'] = el => { U.attDate = el.value; commit(); };
+
+/* Results */
+INPUTS['res-q'] = el => { U.resQ = el.value; $('#res-area').innerHTML = resultsArea(); };
+CHANGES['res-exam'] = el => { U.resExam = el.value; $('#res-area').innerHTML = resultsArea(); };
+CHANGES['res-status'] = el => { U.resStatus = el.value; $('#res-area').innerHTML = resultsArea(); };
+CHANGES['res-sort'] = el => { U.resSort = el.value; $('#res-area').innerHTML = resultsArea(); };
+ACTIONS['res-export'] = () => {
+  const rows = resultRows();
+  downloadCSV(`sntch-exam-results-${dayKey(Date.now())}.csv`, [
+    ['Student number', 'Student', 'Section', 'Exam', 'Score', 'Total', 'Percent', 'Passed', 'Timed out', 'Submitted (ISO)'],
+    ...rows.map(x => { const st = studentById(x.studentId) || {}; return [st.number || '', st.name || '', st.section || '', itemTitle('exam', x.refId), x.score, x.total, x.percent, x.passed ? 'yes' : 'no', x.timeout ? 'yes' : 'no', new Date(x.submittedAt).toISOString()]; })
+  ]);
+};
+
+/* Device (simulated) */
+ACTIONS['dev-diag'] = () => {
+  if (U.diag) return;
+  U.diag = { step: 0 };
+  render();
+  const next = () => {
+    if (!U.diag) return;
+    U.diag.step++;
+    if (U.diag.step < DIAG_STEPS.length) { render(); setTimeout(next, 500); return; }
+    U.diag = null;
+    S.device.lastSync = Date.now();
+    if (S.device.status === 'syncing') S.device.status = 'connected';
+    logEvent('Simulated diagnostics completed', 'ok');
+    commit(); toast('Simulated diagnostics finished.');
+  };
+  setTimeout(next, 500);
+};
+CHANGES['dev-status'] = el => {
+  S.device.status = el.value;
+  logEvent(`Controller status set to ${STATUS[el.value][0]} (simulated)`, el.value === 'connected' ? 'ok' : 'warn');
+  commit();
+};
+FORMS.device = f => {
+  if (!validate(f, [
+    { name: 'ssid', req: 'Enter a network name.', max: 32 },
+    { name: 'ip', req: 'Enter an IP address.', test: v => /^(\d{1,3}\.){3}\d{1,3}$/.test(v) && v.split('.').every(n => Number(n) <= 255), msg: 'Use a valid IPv4 address such as 192.168.4.1.' }
+  ])) return;
+  const d = formData(f), ch = Number(d.channel);
+  if (!(ch >= 1 && ch <= 13)) return showErr(f, 'channel', 'Use a channel from 1 to 13.');
+  Object.assign(S.device, { ssid: d.ssid.trim(), ip: d.ip.trim(), channel: ch });
+  logEvent('Network settings saved'); commit();
+  toast('Saved to this browser. The controller was not changed.', 'info');
+};
+
+/* Settings: each change saves locally and re-renders */
+CHANGES.setting = el => {
+  const key = el.dataset.setting;
+  let val = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
+  if (el.type === 'number') {
+    const min = Number(el.min), max = Number(el.max);
+    if (!(val >= min && val <= max)) { toast(`Use a value from ${min} to ${max}.`, 'error'); el.value = S.settings[key]; return; }
+  }
+  S.settings[key] = val;
+  if (key === 'theme') applyTheme();
+  U.focusSel = `[data-setting="${key}"]`;
+  commit();
+  toast('Saved on this device (local only).');
+};
+
+/* ===== 14. Student views ===== */
+const STUDENT_VIEWS = { home: vHome, join: vJoin, scan: vSScan, activity: vSActivity, exam: vSExam, results: vSResults, profile: vProfile };
+const currentSession = () => S.student.studentSession ? byId(S.sessions, S.student.studentSession) : null;
+const me = () => studentById(S.student.id);
+const nextCard = (kicker, titleHTML, subHTML, ctaHTML) => `<section class="feature" aria-label="Next step"><p class="xs">${kicker}</p><h2>${titleHTML}</h2>${subHTML ? `<p class="small">${subHTML}</p>` : ''}${ctaHTML}</section>`;
+const ctaLink = (href, label, ghost = false) => `<a class="btn btn-sm ${ghost ? 'btn-ghost-light' : ''}" href="${href}">${label}</a>`;
+const ctaButton = (action, label, id = '') => `<button type="button" class="btn btn-sm" data-action="${action}" ${id ? `data-id="${id}"` : ''}>${label}</button>`;
+function connectionChip() {
+  const d = S.device;
+  const label = { connected: 'Local network connected (simulated)', syncing: 'Syncing with controller (simulated)', disconnected: 'Controller disconnected (simulated)', unavailable: 'Controller unavailable (simulated)' }[d.status];
+  return `<p class="conn"><span class="side-dot-sm s-${d.status}"></span><span>${label}. Joining works on the classroom network, without internet.</span></p>`;
+}
+const itemCardS = x => `<li class="item-card"><div class="grow"><span class="tag-type">${x.type === 'exam' ? 'Examination' : 'Activity'}</span><h3>${esc(x.title)}</h3><p class="small muted">${x.dueAt ? 'Due ' + fdt(x.dueAt) : 'No due date'}</p></div>${badge(x.status)}<a class="btn btn-sm" href="#student/${x.type}/${x.id}">Open</a></li>`;
+const resultItemS = x => `<li class="item-card"><div class="grow"><span class="tag-type">${x.type === 'exam' ? 'Examination' : 'Activity'}</span><h3>${esc(itemTitle(x.type === 'exam' ? 'exam' : 'activity', x.refId))}</h3><p class="small muted">${fdt(x.submittedAt)}</p></div>${x.type === 'exam' ? `<span class="mono strong">${x.percent}%</span>${badge(x.passed ? 'passed' : 'failed')}` : badge(x.status)}<button type="button" class="btn btn-sm" data-action="result-detail" data-id="${x.id}">Details</button></li>`;
+
+function sessionNext(s) {
+  const st = eff(s), isExam = s.refType === 'exam';
+  if (st === 'live') {
+    const done = S.submissions.some(x => x.refId === s.refId && x.studentId === S.student.id && x.type === s.refType);
+    if (done) return nextCard(`Joined ${s.code}`, esc(s.title), 'You have already submitted this. Waiting for your teacher.', ctaLink('#student/results', 'View results', true));
+    return nextCard(`Joined ${s.code} · live`, esc(s.title), `${isExam ? 'Examination' : 'Activity'} is open now.`, ctaLink(isExam ? `#student/exam/${s.refId}` : `#student/activity/${s.refId}`, isExam ? 'Start exam' : 'Open activity'));
+  }
+  if (st === 'paused') return nextCard(`Joined ${s.code} · paused`, esc(s.title), 'Your teacher paused this session. Stay on this screen.', ctaButton('refresh', 'Check again'));
+  if (st === 'ready') return nextCard(`Joined ${s.code} · waiting`, esc(s.title), 'Waiting for your teacher to start the session.', ctaButton('refresh', 'Check again'));
+  return nextCard(`Session ${s.code} closed`, esc(s.title), 'This session has ended. Join another session with a new code.', ctaLink('#student/join', 'Join another', true));
+}
+function vHome() {
+  const st = me(), sess = currentSession(), att = S.attempt && S.attempt.status === 'in-progress' ? S.attempt : null;
+  const h = new Date().getHours(), greet = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  const items = [...S.exams.map(e => ({ ...e, type: 'exam' })), ...S.activities.map(a => ({ ...a, type: 'activity' }))]
+    .filter(x => st && x.target === st.section && (x.status === 'active' || x.status === 'scheduled'));
+  const mine = st ? S.submissions.filter(x => x.studentId === st.id).slice(0, 3) : [];
+  let next;
+  if (att) next = nextCard('Exam in progress', esc(itemTitle('exam', att.examId)), `Time left <b class="mono" id="home-clock">${clockStr(att.remaining)}</b>`, ctaLink(`#student/exam/${att.examId}`, 'Resume exam'));
+  else if (sess) next = sessionNext(sess);
+  else next = nextCard('Join a session', 'Enter the code your teacher shows', 'Codes are checked against this classroom. No internet needed.', ctaLink('#student/join', 'Enter code'));
+  return `<div class="hello"><p class="small muted">${st ? `${esc(st.section)} · Student no. ${st.number}` : 'No student record'}</p><h1>${greet}${S.student.displayName ? ', ' + esc(S.student.displayName) : ''}</h1></div>
+  ${connectionChip()}
+  ${next}
+  <h2 class="section-title">Active and upcoming</h2>
+  ${items.length ? `<ul class="cards-list">${items.map(itemCardS).join('')}</ul>` : empty('calendar', 'Nothing open right now', 'Your teacher will open activities and exams for your section.')}
+  <h2 class="section-title">Recent results</h2>
+  ${mine.length ? `<ul class="cards-list">${mine.map(resultItemS).join('')}</ul>` : empty('trophy', 'No results yet', 'Submitted exams and activities appear here.')}`;
+}
+ACTIONS.refresh = () => render();
+
+/* Join */
+function joinPreviewCard(s) {
+  return `<section class="card mt"><p class="xs muted">Session found</p><h2>${esc(s.title)}</h2><p class="small muted">${s.refType === 'exam' ? 'Examination' : 'Activity'} · section ${s.target} · ${badge(eff(s))}</p>
+  <p class="small mt">You can join now and wait on this screen until your teacher starts it.</p>
+  <div class="btn-row mt"><button type="button" class="btn btn-primary btn-lg ${U.joining ? 'is-loading' : ''}" data-action="join-confirm" data-id="${s.id}" ${U.joining ? 'disabled' : ''}>${U.joining ? 'Connecting…' : 'Join session'}</button></div></section>`;
+}
+function vJoin() {
+  const cur = currentSession(), msg = U.joinMsg, prev = U.joinPreview ? byId(S.sessions, U.joinPreview) : null;
+  return `<div class="hello"><h1>Join a session</h1><p class="small muted">Enter the code from your teacher. Codes are checked against this classroom's sessions.</p></div>
+  ${cur ? notice('info', `You are in <b class="mono">${esc(cur.code)}</b> (${esc(cur.title)}). Leave it before joining another session.<div class="btn-row mt">${ctaButton('session-leave', 'Leave session')}</div>`) : ''}
+  <section class="card"><form data-form="join" novalidate>
+    <label class="field"><span class="label">Session code</span><input class="input mono" name="code" id="join-code" placeholder="SNT-XXXX" maxlength="8" autocapitalize="characters" autocomplete="off" spellcheck="false" value="${esc(U.joinCode)}"><span class="hint">Format: SNT- followed by four characters.</span></label>
+    <button type="submit" class="btn btn-primary btn-lg">Check code</button>
+  </form>
+  ${msg ? `<div class="mt">${notice(msg.tone, esc(msg.text))}</div>` : ''}
+</section>
+  ${prev ? joinPreviewCard(prev) : ''}`;
+}
+FORMS.join = f => {
+  const code = String(formData(f).code || '').trim().toUpperCase(), st = me();
+  U.joinCode = code; U.joinPreview = null; U.focusSel = '#join-code';
+  const fail = text => { U.joinMsg = { tone: 'bad', text }; render(); };
+  if (!/^SNT-[A-Z0-9]{4}$/.test(code)) return fail('Codes look like SNT-XXXX. Check the code with your teacher.');
+  if (S.device.status === 'disconnected' || S.device.status === 'unavailable') return fail('Cannot reach the SNTCH controller (simulated). Check the classroom Wi-Fi and try again.');
+  const s = S.sessions.find(x => x.code === code);
+  if (!s) return fail('No session matches this code. Check the board or ask your teacher.');
+  if (s.state === 'ended') return fail('This session has ended. Ask your teacher for a new code.');
+  if (eff(s) === 'expired') return fail('This code has expired. Ask your teacher for a new one.');
+  if (st && s.target !== st.section) return fail(`This session is for section ${s.target}. Your section is ${st.section}.`);
+  U.joinMsg = null; U.joinPreview = s.id; render();
+};
+
+
+/* QR scan (simulated). The camera is not used; the scan fills the join code and opens the join page. */
+function vSScan() {
+  return `<div class="hello"><h1>Scan QR code</h1><p class="small muted">Scan the code on the classroom board to fill in the session code.</p></div>
+  <section class="card scan-card">
+    <div class="viewfinder" role="img" aria-label="Camera viewfinder (simulated)">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <span class="scan-glyph">${I('qr')}</span><span class="scan-line" aria-hidden="true"></span>
+    </div>
+    <p class="small muted">Camera access is simulated in this prototype. Nothing is read from a real device.</p>
+    <div class="btn-row"><button type="button" class="btn btn-primary btn-lg" data-action="scan-simulate">${I('qr')}Simulate scan</button><a class="btn btn-lg" href="#student/join">Enter code instead</a></div>
+  </section>`;
+}
+ACTIONS['scan-simulate'] = () => {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; U.joinCode = 'SNT-' + Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join(''); U.joinMsg = null; U.joinPreview = null; U.focusSel = '#join-code';
+  toast('Code read from the board (simulated). Check it, then join.', 'info');
+  location.hash = '#student/join';
+};
+ACTIONS['join-confirm'] = el => {
+  const s = byId(S.sessions, el.dataset.id); if (!s || U.joining) return;
+  if (S.student.studentSession && S.student.studentSession !== s.id) return toast('Leave your current session before joining another.', 'error');
+  U.joining = true; render();
+  setTimeout(() => {
+    U.joining = false;
+    if (s.state === 'ended' || eff(s) === 'expired') { U.joinPreview = null; toast('That session is no longer open.', 'error'); render(); return; }
+    S.student.studentSession = s.id;
+    if (!s.joined.includes(S.student.id)) s.joined.push(S.student.id);
+    U.joinPreview = null; U.joinMsg = null; U.joinCode = '';
+    logEvent(`${S.student.displayName} joined ${s.code}`, 'ok');
+    save(); toast(`Joined ${s.code}.`);
+    location.hash = '#student/home';
+  }, 700);
+};
+ACTIONS['session-leave'] = () => {
+  const s = currentSession(); if (!s) return;
+  if (S.attempt && S.attempt.status === 'in-progress' && S.attempt.sessionId === s.id) return toast('Finish your exam before leaving this session.', 'error');
+  confirmBox({
+    title: 'Leave session?', message: `You leave ${esc(s.code)}. You can rejoin while the session is open.`, action: 'Leave',
+    onYes: () => { s.joined = s.joined.filter(j => j !== S.student.id); S.student.studentSession = null; logEvent(`${S.student.displayName} left ${s.code}`); commit(); toast('You left the session.'); }
+  });
+};
+
+/* Activity response */
+function vSActivity(id) {
+  const a = byId(S.activities, id); if (!a) return notFound('This activity is no longer available.', 'student/home');
+  const st = me(), sess = S.sessions.find(s => s.refType === 'activity' && s.refId === a.id && s.state !== 'ended');
+  const mine = S.submissions.find(x => x.type === 'activity' && x.refId === a.id && x.studentId === (st ? st.id : null));
+  let body;
+  if (st && a.target !== st.section) body = notice('bad', 'This activity is for another section.');
+  else if (mine) body = `${notice('ok', mine.status === 'reviewed' ? 'Your teacher reviewed your response.' : 'Submitted. Waiting for your teacher to review it.')}<div class="card mt"><p class="xs muted">Your response · ${fdt(mine.submittedAt)}</p><p class="pre mt">${esc(mine.text)}</p><p class="mt">${badge(mine.status)}</p></div>`;
+  else if (!sess || a.status === 'completed') body = notice('info', 'Your teacher has not opened this activity, or it has closed.');
+  else if (S.student.studentSession !== sess.id) body = notice('warn', `Join session <b class="mono">${esc(sess.code)}</b> first.<div class="btn-row mt">${ctaLink('#student/join', 'Join a session')}</div>`);
+  else if (sess.state !== 'live') body = notice('warn', sess.state === 'paused' ? 'Paused by your teacher. You can submit once it resumes.' : 'Waiting for your teacher to start the session.');
+  else body = `<form data-form="activity-response" novalidate><input type="hidden" name="aid" value="${a.id}">
+    <label class="field"><span class="label">Your response</span><textarea class="textarea" name="text" rows="6" maxlength="500" data-input="resp-text" placeholder="Type your response here"></textarea><span class="hint" id="resp-count">0 / 500 characters</span></label>
+    <button type="submit" class="btn btn-primary btn-lg">Review and submit</button></form>`;
+  return `${backLink('#student/home', 'Home')}<section class="card"><span class="tag-type">Activity</span><h1>${esc(a.title)}</h1><p class="small muted mt">${esc(a.description)}</p><h3 class="mt">Instructions</h3><p class="pre mt">${esc(a.instructions)}</p><p class="xs muted mt">Due ${fdt(a.dueAt)}</p></section>
+  <section class="card mt">${body}</section>`;
+}
+INPUTS['resp-text'] = el => { const c = $('#resp-count'); if (c) c.textContent = `${el.value.length} / 500 characters`; };
+FORMS['activity-response'] = f => {
+  const d = formData(f), text = String(d.text || '').trim();
+  if (text.length < 10) return showErr(f, 'text', 'Write at least 10 characters.');
+  const a = byId(S.activities, d.aid), sess = currentSession();
+  confirmBox({
+    title: 'Submit response?', message: 'You cannot edit your response after submitting.', action: 'Submit',
+    onYes: () => {
+      S.submissions.unshift({ id: uid('sub'), type: 'activity', refId: a.id, sessionId: sess ? sess.id : null, studentId: S.student.id, text, submittedAt: Date.now(), status: 'pending' });
+      logEvent(`${S.student.displayName} submitted ${a.title}`); commit(); toast('Response submitted.');
+    }
+  });
+};
+
+/* Examination: gated by a live joined session, timed, answers kept per question */
+function vSExam(id) {
+  const ex = byId(S.exams, id); if (!ex) return notFound('This examination is no longer available.', 'student/home');
+  const att = S.attempt, mine = S.submissions.find(x => x.type === 'exam' && x.refId === id && x.studentId === S.student.id);
+  if (att && att.examId === id && att.status === 'in-progress') return takeView(ex, att);
+  if (att && att.status === 'in-progress') return notice('warn', `You have another exam in progress: <b>${esc(itemTitle('exam', att.examId))}</b>. Finish it first.<div class="btn-row mt">${ctaLink(`#student/exam/${att.examId}`, 'Resume exam')}</div>`);
+  if (mine) return `${backLink('#student/home', 'Home')}${resultView(ex, mine, att && att.examId === id ? att : null)}`;
+  return preStart(ex);
+}
+function preStart(ex) {
+  const s = currentSession(), ok = s && s.refType === 'exam' && s.refId === ex.id;
+  let msg = '', can = false;
+  if (ok && s.state === 'live') can = true;
+  else if (ok && s.state === 'paused') msg = 'Paused by your teacher. The button unlocks when the session resumes.';
+  else if (ok) msg = 'Waiting for your teacher to start the session.';
+  else if (s) msg = `You are in ${esc(s.code)}, which is not this exam. Leave that session to join this one.`;
+  else msg = 'Join this exam’s session first. Ask your teacher for the code.';
+  return `${backLink('#student/home', 'Home')}<section class="card">
+    <span class="tag-type">Examination</span><h1>${esc(ex.title)}</h1><p class="pre mt small">${esc(ex.instructions)}</p>
+    <dl class="facts"><div><dt>Duration</dt><dd class="mono">${ex.duration} min</dd></div><div><dt>Questions</dt><dd class="mono">${ex.questions.length}</dd></div><div><dt>Passing score</dt><dd class="mono">${ex.passing}%</dd></div><div><dt>Attempts</dt><dd>${ex.attempts}</dd></div></dl>
+    ${msg ? `<div class="mt">${notice(can ? 'ok' : 'info', msg)}</div>` : ''}
+    <div class="btn-row mt"><button type="button" class="btn btn-primary btn-lg" data-action="exam-start" data-id="${ex.id}" ${can ? '' : 'disabled'}>Start exam</button>${s ? '' : ctaLink('#student/join', 'Join a session', true)}</div>
+    <p class="xs muted mt">Timing here is a browser simulation. It is not secure exam enforcement.</p></section>`;
+}
+const answeredCount = (ex, att) => ex.questions.filter(q => att.answers[q.id] !== undefined && att.answers[q.id] !== '').length;
+function qnavHTML(ex, att, cur) {
+  return ex.questions.map((q, j) => {
+    const done = att.answers[q.id] !== undefined && att.answers[q.id] !== '';
+    return `<button type="button" class="${done ? 'answered' : ''}" data-action="exam-go" data-idx="${j}" aria-label="Question ${j + 1}, ${done ? 'answered' : 'not answered'}" ${j === cur ? 'aria-current="step"' : ''}>${j + 1}${done ? I('check', 'sm-ico') : ''}</button>`;
+  }).join('');
+}
+function takeView(ex, att) {
+  if (att.review) return reviewView(ex, att);
+  const n = ex.questions.length, idx = Math.min(att.index, n - 1), q = ex.questions[idx], s = byId(S.sessions, att.sessionId);
+  const val = att.answers[q.id];
+  const input = q.type === 'mc'
+    ? q.options.map((o, j) => `<label class="opt"><input type="radio" name="answer" value="${j}" data-answer="${q.id}" ${val === j ? 'checked' : ''}><span class="opt-letter">${'ABCD'[j]}</span><span>${esc(o)}</span></label>`).join('')
+    : `<label class="field"><span class="label">Your answer</span><input class="input" name="answer" data-answer="${q.id}" value="${esc(val || '')}" maxlength="120" autocomplete="off" autocapitalize="off"></label>`;
+  return `<div class="exam-top">
+    <button type="button" class="icon-btn" data-action="exam-exit" aria-label="Leave this screen (timer keeps running)" title="Leave screen">${I('x')}</button>
+    <div class="grow"><p class="xs muted">${esc(ex.title)}</p><p class="small strong">Question ${idx + 1} of ${n}</p></div>
+    <span id="exam-timer" class="timer ${att.remaining < 60 ? 'low' : ''}" aria-label="Time remaining">${clockStr(att.remaining)}</span></div>
+  <div class="exam-body">
+    ${s && s.state === 'paused' ? notice('warn', 'Paused by your teacher. The timer is stopped until the session resumes.') : ''}
+    ${bar(Math.round((idx + 1) / n * 100), 'Exam progress')}
+    <nav class="qnav" id="qnav" aria-label="Questions">${qnavHTML(ex, att, idx)}</nav>
+    <p class="xs muted" id="answered-count">${answeredCount(ex, att)} of ${n} answered</p>
+    <section class="card qcard"><p class="xs muted">Question ${idx + 1} · ${q.type === 'mc' ? 'Choose one answer' : 'Short answer'}</p><h2 class="qprompt" id="q-heading" tabindex="-1">${esc(q.prompt)}</h2>${input}</section>
+    <div class="exam-nav"><button type="button" class="btn" data-action="exam-go" data-idx="${idx - 1}" ${idx === 0 ? 'disabled' : ''}>Previous</button>
+    ${idx < n - 1 ? `<button type="button" class="btn btn-primary" data-action="exam-go" data-idx="${idx + 1}">Next</button>` : '<button type="button" class="btn btn-primary" data-action="exam-review">Review answers</button>'}</div>
+  </div>`;
+}
+function reviewView(ex, att) {
+  const n = ex.questions.length, missing = [];
+  ex.questions.forEach((q, j) => { const v = att.answers[q.id]; if (v === undefined || v === '') missing.push(j + 1); });
+  return `<div class="exam-top"><button type="button" class="icon-btn" data-action="exam-go" data-idx="${n - 1}" aria-label="Back to questions">${I('chevron-left')}</button>
+   <div class="grow"><p class="xs muted">${esc(ex.title)}</p><p class="small strong">Review before submitting</p></div><span id="exam-timer" class="timer ${att.remaining < 60 ? 'low' : ''}">${clockStr(att.remaining)}</span></div>
+  <div class="exam-body">
+    ${missing.length ? notice('warn', `${missing.length} unanswered: question${missing.length > 1 ? 's' : ''} ${missing.join(', ')}. Answer every question to submit.`) : notice('ok', 'All questions are answered. You can submit now.')}
+    <ol class="review-list">${ex.questions.map((q, j) => { const v = att.answers[q.id], shown = v === undefined || v === '' ? 'No answer' : q.type === 'mc' ? q.options[v] : v; return `<li class="review-item"><div class="grow"><span class="xs muted">Question ${j + 1}</span><p class="strong">${esc(q.prompt)}</p><p class="small">${esc(shown)}</p></div><button type="button" class="btn btn-sm" data-action="exam-go" data-idx="${j}">Edit</button></li>`; }).join('')}</ol>
+    <div class="exam-nav"><button type="button" class="btn" data-action="exam-go" data-idx="${n - 1}">Back to questions</button><button type="button" class="btn btn-primary" data-action="exam-submit" ${missing.length ? 'disabled' : ''}>Submit exam</button></div>
+  </div>`;
+}
+function resultView(ex, sub, att) {
+  let note = '';
+  if (sub.timeout) note = notice('warn', att && att.endReason === 'ended' ? 'The session ended, so your answers were submitted automatically (simulated).' : 'Time is up. Your answers were submitted automatically (simulated timeout).');
+  const review = S.settings.showCorrect ? reviewRows(ex, sub.answers, true) : notice('info', 'Correct answers are hidden by your teacher’s settings.');
+  return `<section class="card result-hero"><span class="tag-type">${esc(ex.title)}</span><p class="small muted">Submitted ${fdt(sub.submittedAt)}</p>
+    <p class="score-big">${sub.score}/${sub.total}</p><p class="mono">${sub.percent}%</p>${badge(sub.passed ? 'passed' : 'failed')}
+    <p class="xs muted">Pass mark ${ex.passing}%. Answers are locked after submission.</p></section>
+    ${note}<h2 class="section-title">Answer review</h2><section class="card">${review}</section>
+    <div class="btn-row"><a class="btn btn-primary" href="#student/results">All results</a><a class="btn" href="#student/home">Home</a></div>`;
+}
+function onAnswer(el) {
+  const att = S.attempt; if (!att || att.status !== 'in-progress') return;
+  const ex = byId(S.exams, att.examId), q = ex && ex.questions.find(x => x.id === el.dataset.answer); if (!q) return;
+  const v = q.type === 'mc' ? Number(el.value) : el.value;
+  if (q.type === 'text' && String(v).trim() === '') delete att.answers[q.id]; else att.answers[q.id] = v;
+  save();
+  const nav = $('#qnav'); if (nav) nav.innerHTML = qnavHTML(ex, att, att.index);
+  const c = $('#answered-count'); if (c) c.textContent = `${answeredCount(ex, att)} of ${ex.questions.length} answered`;
+}
+ACTIONS['exam-start'] = el => {
+  const ex = byId(S.exams, el.dataset.id), s = currentSession();
+  if (!ex || !s || s.state !== 'live') return toast('Join a live session first.', 'warn');
+  if (S.attempt && S.attempt.status === 'in-progress') return toast('Finish your current exam first.', 'warn');
+  confirmBox({
+    title: 'Start exam?', message: `The ${ex.duration}-minute timer starts now and keeps running while the session is live. Once submitted, answers cannot change.`, action: 'Start exam',
+    onYes: () => {
+      S.attempt = { examId: ex.id, sessionId: s.id, remaining: ex.duration * 60, answers: {}, index: 0, review: false, status: 'in-progress', seenState: s.state, startedAt: Date.now() };
+      logEvent(`${S.student.displayName} started ${ex.title}`); commit();
+    }
+  });
+};
+ACTIONS['exam-go'] = el => {
+  const att = S.attempt; if (!att || att.status !== 'in-progress') return;
+  att.index = Math.max(0, Number(el.dataset.idx)); att.review = false;
+  U.focusSel = '#q-heading'; commit();
+};
+ACTIONS['exam-review'] = () => { if (S.attempt && S.attempt.status === 'in-progress') { S.attempt.review = true; commit(); } };
+ACTIONS['exam-submit'] = () => {
+  const att = S.attempt; if (!att || att.status !== 'in-progress') return;
+  const ex = byId(S.exams, att.examId);
+  if (answeredCount(ex, att) < ex.questions.length) return toast('Answer every question before submitting.', 'error');
+  if (S.settings.confirmSubmit) return confirmBox({ title: 'Submit exam?', message: 'You cannot change your answers after submitting.', action: 'Submit exam', onYes: () => { submitAttempt('student'); commit(); } });
+  submitAttempt('student'); commit();
+};
+ACTIONS['exam-exit'] = () => { toast('Exam still in progress. Resume it from Home.', 'info'); location.hash = '#student/home'; };
+function submitAttempt(reason) {
+  const att = S.attempt; if (!att || att.status !== 'in-progress') return;
+  const ex = byId(S.exams, att.examId), g = grade(ex, att.answers);
+  const sub = { id: uid('sub'), type: 'exam', refId: ex.id, sessionId: att.sessionId, studentId: S.student.id, answers: { ...att.answers }, score: g.score, total: g.total, percent: g.percent, passed: g.passed, submittedAt: Date.now(), timeout: reason !== 'student', status: 'graded' };
+  S.submissions.unshift(sub);
+  att.status = 'submitted'; att.endReason = reason; att.submissionId = sub.id;
+  logEvent(`${S.student.displayName} submitted ${ex.title}${reason === 'student' ? '' : reason === 'timeout' ? ' (time up)' : ' (session ended)'}`);
+  save();
+  if (reason === 'student') toast('Exam submitted.');
+  else toast(reason === 'timeout' ? 'Time is up. Answers submitted (simulated).' : 'Session ended. Answers submitted (simulated).', 'warn');
+}
+/* Global one-second tick: runs the exam clock only while the session is live. */
+let tickN = 0;
+function tick() {
+  const att = S.attempt; if (!att || att.status !== 'in-progress') return;
+  const s = byId(S.sessions, att.sessionId);
+  if (!s || s.state === 'ended') { submitAttempt('ended'); if (routeIs('student', 'exam')) render(); return; }
+  if (att.seenState !== s.state) { att.seenState = s.state; if (routeIs('student', 'exam')) render(); return; }
+  if (s.state === 'live') {
+    att.remaining = Math.max(0, att.remaining - 1);
+    if (att.remaining === 0) { submitAttempt('timeout'); if (routeIs('student', 'exam')) render(); return; }
+  }
+  const t = $('#exam-timer'); if (t) { t.textContent = clockStr(att.remaining); t.classList.toggle('low', att.remaining < 60); }
+  const hc = $('#home-clock'); if (hc) hc.textContent = clockStr(att.remaining);
+  if (++tickN % 5 === 0) save();
+}
+
+/* Results and profile */
+function vSResults() {
+  const mine = S.submissions.filter(x => x.studentId === S.student.id), exs = mine.filter(x => x.type === 'exam');
+  const avg = exs.length ? Math.round(exs.reduce((a, b) => a + b.percent, 0) / exs.length) : null;
+  return `<div class="hello"><h1>Results</h1><p class="small muted">Your submitted exams and activities, with scores where they apply.</p></div>
+  <div class="grid stats">${stat('exam', 'Exams taken', exs.length, 'Submitted')}${stat('trophy', 'Average', avg === null ? '—' : avg + '%', 'Across exams')}${stat('check', 'Passed', exs.filter(x => x.passed).length, 'Against each pass mark')}${stat('activity', 'Activities', mine.filter(x => x.type === 'activity').length, 'Submitted')}</div>
+  ${mine.length ? `<ul class="cards-list">${mine.map(resultItemS).join('')}</ul>` : empty('trophy', 'No results yet', 'Submitted exams and activities appear here.', ctaLink('#student/home', 'Go to home', true))}`;
+}
+function vProfile() {
+  const st = me(), s = currentSession();
+  return `<div class="hello"><h1>Profile</h1><p class="small muted">Only what this prototype needs. No contact details are collected.</p></div>
+  <section class="card"><form data-form="profile" novalidate><label class="field"><span class="label">Display name</span><input class="input" name="name" value="${esc(S.student.displayName)}" maxlength="20"></label><button type="submit" class="btn btn-primary">Save name</button></form>
+    ${st ? `<dl class="facts mt"><div><dt>Student number</dt><dd class="mono">XXXX-${st.number.slice(-4)}</dd></div><div><dt>Class</dt><dd>${esc(S.settings.className)}</dd></div><div><dt>Section</dt><dd>${st.section}</dd></div></dl>` : `<dl class="facts mt"><div><dt>Student number</dt><dd class="mono">—</dd></div><div><dt>Class</dt><dd>${esc(S.settings.className)}</dd></div><div><dt>Section</dt><dd>—</dd></div></dl>`}</section>
+  <section class="card mt"><h2>Appearance</h2><label class="field mt"><span class="label">Theme preference</span><select class="select" data-change="setting" data-setting="theme">${opts([['light', 'Light (Forest Tech default)'], ['dark', 'Dark'], ['system', 'Match this device']], S.settings.theme)}</select></label></section>
+  <section class="card mt"><h2>Session</h2>${s ? `<p class="small">Joined <b class="mono">${esc(s.code)}</b> · ${esc(s.title)}</p><div class="btn-row mt">${ctaButton('session-leave', 'Leave session')}</div>` : '<p class="small muted">Not joined to a session.</p>'}
+    <p class="xs muted mt">Your data stays in this browser's local storage. It is not device storage and is not synced anywhere.</p>
+    <div class="btn-row mt"><button type="button" class="btn btn-sm btn-danger" data-action="reset-demo">${I('refresh')}Clear all data</button></div></section>`;
+}
+FORMS.profile = f => {
+  if (!validate(f, [{ name: 'name', req: 'Enter a display name.', max: 20 }])) return;
+  S.student.displayName = formData(f).name.trim(); commit(); toast('Name saved.');
+};
+
+ACTIONS['csv-copy'] = async () => {
+  if (await copyText(CSV_TEXT)) { toast('CSV copied.'); return; }
+  const ta = $('#csv-text'); if (ta) { ta.focus(); ta.select(); }
+  toast('Copy is blocked here. The text is selected. Press Ctrl+C or Cmd+C.', 'warn');
+};
+
+/* ===== 15. Startup ===== */
+document.addEventListener('click', onClick);
+document.addEventListener('input', onInput);
+document.addEventListener('change', onChange);
+document.addEventListener('submit', onSubmit);
+document.addEventListener('keydown', onKey);
+window.addEventListener('hashchange', render);
+S = load();
+try { if (!location.hash) history.replaceState(null, '', '#teacher/dashboard'); } catch (e) { /* a viewer may refuse URL changes; the default route still renders */ }
+applyTheme();
+render();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

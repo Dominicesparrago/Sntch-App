@@ -1,0 +1,47 @@
+{
+  "answers": {
+    "1": 0,
+    "2": "oxygen"
+  },
+  "answersVisible": true,
+  "id": 1,
+  "ok": true,
+  "passed": true,
+  "percent": 100,
+  "questions": [
+    {
+      "correct": 0,
+      "id": 1,
+      "keys": [],
+      "options": [
+        "Light",
+        "Sound"
+      ],
+      "prompt": "What do chloroplasts capture?",
+      "type": "mc"
+    },
+    {
+      "correct": 0,
+      "id": 2,
+      "keys": [
+        "Oxygen",
+        "O2"
+      ],
+      "options": [],
+      "prompt": "Which gas is released?",
+      "type": "text"
+    }
+  ],
+  "refId": 1,
+  "refType": "exam",
+  "score": 2,
+  "sessionId": 1,
+  "status": "graded",
+  "studentId": 1,
+  "studentName": "Ana Cruz",
+  "submittedMs": 290,
+  "text": "",
+  "timeout": false,
+  "title": "Photosynthesis check",
+  "total": 2
+}
