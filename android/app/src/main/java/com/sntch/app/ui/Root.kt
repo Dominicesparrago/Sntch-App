@@ -110,8 +110,8 @@ private fun RoleGate(container: AppContainer, onPick: (String) -> Unit) {
         }
 
         Text(
-            "The controller is an ESP32-S3 that creates its own Wi-Fi network. Connect this phone to " +
-                "SNTCH-CLASS, then choose how you are using the app.",
+            "The controller is an ESP32-WROOM-32D that creates its own Wi-Fi network. Connect this phone to " +
+                "SNTCH-EXAM, then choose how you are using the app.",
             style = MaterialTheme.typography.bodyLarge,
         )
 

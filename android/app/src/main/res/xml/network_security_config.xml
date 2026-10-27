@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The SNTCH controller serves plain HTTP on a private, teacher-owned access
-     point. TLS is not available on the ESP32-S3 in V1, so cleartext is allowed
+     point. TLS is not available on the ESP32-WROOM-32D in V1, so cleartext is allowed
      for this app only. See docs/SECURITY notes in ARCHITECTURE.md. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="true" />

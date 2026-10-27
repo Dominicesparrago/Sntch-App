@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """SNTCH end-to-end protocol test.
 
-Starts the host simulator (the same core + API the ESP32-S3 firmware runs),
+Starts the host simulator (the same core + API the WROOM-32D firmware runs),
 drives complete teacher/student workflows over real HTTP, restarts the process
 against the same data directory, and checks recovery behaviour.
 

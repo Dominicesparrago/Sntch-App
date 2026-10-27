@@ -8,6 +8,7 @@
 #include "sntch/classroom.hpp"
 #include "sntch/json.hpp"
 #include "sntch/storage.hpp"
+#include "network_recovery.h"
 
 using namespace sntch;
 
@@ -41,6 +42,12 @@ static std::string show(const char* value) { return value ? std::string(value) :
   } while (0)
 
 static const char* kPin = "246810";
+static const char* kPendingInitPath = "/sntch_pending_init.txt";
+static const char* kPendingInitValue = "SNTCH-PENDING-INIT-V1";
+
+static void prepareFreshFilesystem(MemoryStorage& storage) {
+  storage.write(kPendingInitPath, kPendingInitValue);
+}
 
 static Json body(const char* json) {
   Json out;
@@ -136,6 +143,7 @@ static void testJson() {
 
 static void testRosterAndSessions() {
   MemoryStorage disk;
+  prepareFreshFilesystem(disk);
   Classroom room(&disk, kPin);
   CHECK(room.load());
 
@@ -500,6 +508,7 @@ static void testTimeoutAndEnd() {
 
 static void testPersistenceAndRecovery() {
   MemoryStorage disk(512 * 1024);
+  prepareFreshFilesystem(disk);
   unsigned examId = 0;
   {
     Classroom room(&disk, kPin);
@@ -557,10 +566,106 @@ static void testPersistenceAndRecovery() {
   CHECK_EQ(submitOut.find("submission")->integer("percent", -1), 100);
 }
 
+static void testInvalidSavedStateIsPreserved() {
+  MemoryStorage freshFilesystem;
+  Classroom freshRoom(&freshFilesystem, kPin);
+  CHECK(!freshFilesystem.exists("/state.json"));
+  CHECK(!freshRoom.load());
+  CHECK_EQ(freshRoom.lastError(), std::string("INITIALIZATION_REQUIRED"));
+  prepareFreshFilesystem(freshFilesystem);
+  Classroom explicitlyPrepared(&freshFilesystem, kPin);
+  CHECK(explicitlyPrepared.load());
+  CHECK(freshFilesystem.exists("/sntch_initialized.txt"));
+  CHECK(freshFilesystem.exists("/state.json"));
+  CHECK(!freshFilesystem.exists(kPendingInitPath));
+  CHECK(!explicitlyPrepared.storageError());
+
+  MemoryStorage unmarkedData;
+  CHECK(unmarkedData.write("/sub/old-response.json", "keep"));
+  Classroom unmarkedRoom(&unmarkedData, kPin);
+  CHECK(!unmarkedRoom.load());
+  CHECK_EQ(unmarkedRoom.lastError(), std::string("UNMARKED_FILESYSTEM_HAS_DATA"));
+  CHECK_EQ(unmarkedData.read("/sub/old-response.json"), std::string("keep"));
+
+  MemoryStorage pendingWithOtherData;
+  prepareFreshFilesystem(pendingWithOtherData);
+  CHECK(pendingWithOtherData.write("/archive/keep.json", "keep"));
+  Classroom unsafePending(&pendingWithOtherData, kPin);
+  CHECK(!unsafePending.load());
+  CHECK_EQ(unsafePending.lastError(), std::string("PENDING_INITIALIZATION_HAS_OTHER_FILES"));
+  CHECK(pendingWithOtherData.exists("/archive/keep.json"));
+
+  MemoryStorage missingState;
+  prepareFreshFilesystem(missingState);
+  Classroom firstInstall(&missingState, kPin);
+  CHECK(firstInstall.load());
+  CHECK(missingState.remove("/state.json"));
+  Classroom rebootedMissing(&missingState, kPin);
+  CHECK(!rebootedMissing.load());
+  CHECK_EQ(rebootedMissing.lastError(), std::string("INITIALIZED_STATE_MISSING"));
+  CHECK(missingState.exists("/sntch_initialized.txt"));
+
+  // Simulate power loss after state.json was staged but before its rename and
+  // initialization marker commit. A complete temp snapshot is recovered.
+  MemoryStorage interrupted;
+  prepareFreshFilesystem(interrupted);
+  MemoryStorage snapshotStorage;
+  prepareFreshFilesystem(snapshotStorage);
+  Classroom snapshot(&snapshotStorage, kPin);
+  CHECK(snapshot.load());
+  const std::string savedState = snapshotStorage.read("/state.json");
+  CHECK(interrupted.write("/state.json.tmp", savedState));
+  Classroom recovered(&interrupted, kPin);
+  CHECK(recovered.load());
+  CHECK(interrupted.exists("/state.json"));
+  CHECK(interrupted.exists("/sntch_initialized.txt"));
+  CHECK(!interrupted.exists(kPendingInitPath));
+
+  // A valid pre-marker SNTCH snapshot is adopted in place without changing its data.
+  MemoryStorage legacy;
+  CHECK(legacy.write("/state.json", savedState));
+  Classroom adoptedLegacy(&legacy, kPin);
+  CHECK(adoptedLegacy.load());
+  CHECK(legacy.exists("/sntch_initialized.txt"));
+  CHECK_EQ(legacy.read("/state.json"), savedState);
+
+  MemoryStorage emptyState;
+  CHECK(emptyState.write("/state.json", ""));
+  Classroom emptyRoom(&emptyState, kPin);
+  CHECK(!emptyRoom.load());
+  CHECK(emptyRoom.storageError());
+  CHECK(emptyState.exists("/state.json"));
+  CHECK_EQ(emptyState.read("/state.json"), std::string());
+
+  MemoryStorage malformedState;
+  CHECK(malformedState.write("/state.json", "{\"v\":1,broken"));
+  Classroom malformedRoom(&malformedState, kPin);
+  CHECK(!malformedRoom.load());
+  CHECK_EQ(malformedState.read("/state.json"), std::string("{\"v\":1,broken"));
+
+  MemoryStorage incompatibleState;
+  const std::string original = "{\"v\":99,\"students\":[]}";
+  CHECK(incompatibleState.write("/state.json", original));
+  Classroom incompatibleRoom(&incompatibleState, kPin);
+  CHECK(!incompatibleRoom.load());
+  CHECK(incompatibleRoom.storageError());
+  CHECK_EQ(incompatibleRoom.lastError(), std::string("CORRUPT_OR_INCOMPATIBLE_STATE"));
+  CHECK_EQ(incompatibleState.read("/state.json"), original);
+
+  MemoryStorage incompleteState;
+  const std::string missingArray = "{\"v\":1,\"students\":[]}";
+  CHECK(incompleteState.write("/state.json", missingArray));
+  Classroom incompleteRoom(&incompleteState, kPin);
+  CHECK(!incompleteRoom.load());
+  CHECK_EQ(incompleteState.read("/state.json"), missingArray);
+}
+
 static void testStorageFull() {
-  MemoryStorage disk(300);
+  MemoryStorage disk;
+  prepareFreshFilesystem(disk);
   Classroom room(&disk, kPin);
   CHECK(room.load());
+  disk.setCapacity(300);
   Json list = Json::array();
   Json s = Json::object();
   s.set("number", Json::makeString("S-001"));
@@ -577,11 +682,12 @@ static void testStorageFull() {
 
 static void testApi() {
   MemoryStorage disk(512 * 1024);
+  prepareFreshFilesystem(disk);
   Classroom room(&disk, kPin);
   room.load();
   DeviceInfo info;
   info.name = "SNTCH-TEST";
-  info.ssid = "SNTCH-CLASS";
+  info.ssid = "SNTCH-EXAM";
   info.ip = "192.168.4.1";
   info.firmware = "0.1.0-test";
   info.freeHeap = 200000;
@@ -596,10 +702,13 @@ static void testApi() {
   health.nowMs = now;
   Response r = api.handle(health);
   CHECK_EQ(r.status, 200);
+  CHECK_EQ(r.contentType, std::string("application/json"));
   Json healthJson;
   CHECK(parseJson(r.body, healthJson, 0));
   CHECK(healthJson.flag("ok", false));
   CHECK_EQ(healthJson.str("firmware"), std::string("0.1.0-test"));
+  CHECK_EQ(healthJson.str("ssid"), std::string("SNTCH-EXAM"));
+  CHECK_EQ(healthJson.str("ip"), std::string("192.168.4.1"));
 
   Request badLogin;
   badLogin.method = "POST";
@@ -789,6 +898,7 @@ static void testApi() {
 
 static void testCapacity() {
   MemoryStorage disk(2 * 1024 * 1024);
+  prepareFreshFilesystem(disk);
   Classroom room(&disk, kPin);
   addRoster(room, 50);
   int added = 0, updated = 0;
@@ -796,6 +906,35 @@ static void testCapacity() {
   Result r = room.addStudents(one, added, updated);
   CHECK(!r.ok);
   CHECK_EQ(r.code, std::string("CAPACITY_REACHED"));
+}
+
+static void testNetworkRecoveryPolicy() {
+  using sntch_fw::NetworkRecovery;
+  const uint32_t retryMs = 5000;
+  NetworkRecovery state;
+
+  CHECK(state.nextAction(0, retryMs) == NetworkRecovery::Action::kStartAccessPoint);
+  state.noteAttempt(0);
+  CHECK(state.nextAction(4999, retryMs) == NetworkRecovery::Action::kNone);
+  CHECK(state.nextAction(5000, retryMs) == NetworkRecovery::Action::kStartAccessPoint);
+
+  state.noteAttempt(5000);
+  state.setAccessPointReady(true);
+  CHECK(state.nextAction(5001, retryMs) == NetworkRecovery::Action::kNone);
+  CHECK(state.nextAction(10000, retryMs) == NetworkRecovery::Action::kStartApi);
+  state.noteAttempt(10000);
+  state.setApiReady(true);
+  CHECK(state.ready());
+  CHECK(state.nextAction(10001, retryMs) == NetworkRecovery::Action::kNone);
+
+  state.setAccessPointReady(false);
+  CHECK(!state.ready());
+  CHECK(state.apiReady());
+  CHECK(state.nextAction(15000, retryMs) == NetworkRecovery::Action::kStartAccessPoint);
+  state.noteAttempt(15000);
+  state.setAccessPointReady(true);
+  CHECK(state.ready());
+  CHECK(state.apiReady());  // AP recovery reuses the existing HTTP listener.
 }
 
 int main() {
@@ -806,9 +945,11 @@ int main() {
   testExamFlow();
   testTimeoutAndEnd();
   testPersistenceAndRecovery();
+  testInvalidSavedStateIsPreserved();
   testStorageFull();
   testApi();
   testCapacity();
+  testNetworkRecoveryPolicy();
   std::printf("\n%d checks, %d failure(s)\n", g_checks, g_failures);
   if (g_failures) std::printf("TESTS FAILED\n");
   else std::printf("ALL TESTS PASSED\n");

@@ -110,7 +110,7 @@ fun emptyTeacherStateJson(
 ): String = """
     {
       "ok": true,
-      "device": {"name":"SNTCH-AB","ssid":"SNTCH-CLASS","ip":"192.168.4.1","firmware":"0.1.0",
+      "device": {"name":"SNTCH-AB","ssid":"SNTCH-EXAM","ip":"192.168.4.1","firmware":"0.1.0",
                  "uptimeMs":120000,"freeHeap":180000,"storageUsed":4096,"storageTotal":1048576,
                  "storageError":false,"students":2,"openSessions":1},
       "students": [

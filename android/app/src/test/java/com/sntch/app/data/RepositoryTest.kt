@@ -36,7 +36,7 @@ class RepositoryTest {
         controller.route(
             "/api/teacher/login",
             body = """{"ok":true,"token":"teacher-token","expiresInSec":28800,
-                       "device":{"name":"SNTCH-AB","ssid":"SNTCH-CLASS","ip":"192.168.4.1","firmware":"0.1.0"}}""",
+                       "device":{"name":"SNTCH-AB","ssid":"SNTCH-EXAM","ip":"192.168.4.1","firmware":"0.1.0"}}""",
         )
         controller.route("/api/teacher/state", body = emptyTeacherStateJson())
 

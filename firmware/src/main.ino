@@ -1,4 +1,4 @@
-// SNTCH controller firmware (ESP32-S3).
+// SNTCH controller firmware for ESP32-WROOM-32D (classic ESP32).
 //
 // Boot: mount LittleFS, load the classroom snapshot, start the SNTCH Wi-Fi
 // access point, serve the local HTTP/JSON API. All classroom logic lives in
@@ -10,10 +10,16 @@
 #include "access_point.h"
 #include "api_server.h"
 #include "littlefs_storage.h"
+#include "network_recovery.h"
 #include "sntch/api.hpp"
 #include "sntch/classroom.hpp"
 #include "sntch_config.h"
 #include "uptime.h"
+
+// Keep Arduino's sketch preprocessor from generating setup()/loop() prototypes
+// inside the private namespace below.
+void setup();
+void loop();
 
 using sntch::Classroom;
 using sntch::DeviceInfo;
@@ -30,6 +36,10 @@ sntch_fw::ApiServer g_server(&g_api, &g_classroom);
 uint32_t g_lastSaveMs = 0;
 uint32_t g_lastDiagMs = 0;
 int g_lastClients = -1;
+sntch_fw::NetworkRecovery g_network;
+bool g_hasReportedReady = false;
+bool g_classroomReady = false;
+constexpr uint32_t kApRetryIntervalMs = 5000;
 
 String deviceName() {
   uint8_t mac[6] = {0};
@@ -69,6 +79,60 @@ void logDiagnostics(const String& name) {
   (void)name;
 }
 
+void refreshDeviceInfo() {
+  const String name = deviceName();
+  g_device = collectDeviceInfo(name);
+  g_api.setDeviceInfo(g_device);
+}
+
+void logReady(bool recovered) {
+  const String name = deviceName();
+  Serial.printf("[sntch] ready; network \"%s\" at http://%s/\n", SNTCH_AP_SSID,
+                g_ap.ip().c_str());
+  Serial.printf("[sntch] device name %s\n", name.c_str());
+  Serial.println("[sntch] teacher sign-in uses the PIN configured at build time");
+  if (recovered) Serial.println("[sntch] Wi-Fi and HTTP API service recovered");
+  g_hasReportedReady = true;
+}
+
+void attemptRecovery(uint32_t nowMs) {
+  const bool wasReady = g_network.ready();
+  if (g_network.accessPointReady() && !g_ap.isRunning()) {
+    g_network.setAccessPointReady(false);
+    Serial.println("[sntch] Wi-Fi access point lost; service unavailable until Wi-Fi recovers");
+  }
+
+  const sntch_fw::NetworkRecovery::Action action =
+      g_network.nextAction(nowMs, kApRetryIntervalMs);
+  if (action == sntch_fw::NetworkRecovery::Action::kNone) return;
+
+  g_network.noteAttempt(nowMs);
+  if (action == sntch_fw::NetworkRecovery::Action::kStartAccessPoint) {
+    if (!g_ap.begin()) {
+      g_network.setAccessPointReady(false);
+      Serial.println("[sntch] ERROR: Wi-Fi access point startup failed; retrying in 5 seconds");
+      return;
+    }
+    g_network.setAccessPointReady(true);
+    refreshDeviceInfo();
+    Serial.println("[sntch] Wi-Fi access point is up");
+  }
+
+  // Keep an already-started HTTP listener across AP recovery. Retry only the
+  // component whose startup failed.
+  if (g_network.accessPointReady() && !g_network.apiReady()) {
+    refreshDeviceInfo();
+    if (!g_server.begin()) {
+      g_network.setApiReady(false);
+      Serial.println("[sntch] ERROR: HTTP API startup failed; Wi-Fi remains up; retrying API in 5 seconds");
+      return;
+    }
+    g_network.setApiReady(true);
+  }
+
+  if (!wasReady && g_network.ready()) logReady(g_hasReportedReady);
+}
+
 }  // namespace
 
 void setup() {
@@ -78,35 +142,39 @@ void setup() {
   Serial.printf("[sntch] SNTCH controller %s booting\n", SNTCH_FIRMWARE_VERSION);
 
   if (!g_storage.begin()) {
-    Serial.println("[sntch] running without persistent storage (RAM only)");
+    Serial.println("[sntch] FATAL: storage unavailable; classroom service will not start");
+    Serial.println("[sntch] initialize a blank filesystem explicitly with the matching PlatformIO uploadfs target");
+    return;
   }
 
   g_classroom.setSeed(esp_random());
   bool loaded = g_classroom.load();
   Serial.printf("[sntch] classroom state %s (%u students, %u submissions)\n",
-                loaded ? "loaded" : "empty/corrupt",
+                loaded ? "loaded/initialized" : g_classroom.lastError().c_str(),
                 static_cast<unsigned>(g_classroom.studentCount()),
                 static_cast<unsigned>(g_classroom.submissionCount()));
+  if (!loaded) {
+    Serial.printf("[sntch] FATAL: classroom state could not be loaded (%s); service will not start\n",
+                  g_classroom.lastError().c_str());
+    Serial.println("[sntch] stored files were left in place; inspect or back up LittleFS before recovery");
+    return;
+  }
 
-  if (!g_ap.begin()) Serial.println("[sntch] WARNING: access point failed to start");
-
-  const String name = deviceName();
-  g_device = collectDeviceInfo(name);
-  g_api.setDeviceInfo(g_device);
-
-  g_server.begin();
+  g_classroomReady = true;
   g_lastSaveMs = millis();
   g_lastDiagMs = millis();
-
-  Serial.println("[sntch] ready");
-  Serial.printf("[sntch] network \"%s\" (WPA2) - open the SNTCH app and connect\n", SNTCH_AP_SSID);
-  Serial.printf("[sntch] controller at http://%s/\n", g_ap.ip().c_str());
-  Serial.printf("[sntch] device name %s\n", name.c_str());
-  Serial.println("[sntch] teacher sign-in uses the PIN configured at build time");
+  attemptRecovery(millis());
 }
 
 void loop() {
-  g_server.handle();
+  if (!g_classroomReady) {
+    delay(1000);
+    return;
+  }
+
+  attemptRecovery(millis());
+
+  if (g_network.apiReady()) g_server.handle();
   g_classroom.tick(sntch_fw::uptimeMs());
 
   // Checkpoint in-progress exam clocks; mutations already persist themselves.
@@ -117,8 +185,7 @@ void loop() {
   }
 
   if (static_cast<uint32_t>(millis() - g_lastDiagMs) >= SNTCH_DIAG_INTERVAL_MS) {
-    g_device = collectDeviceInfo(deviceName());
-    g_api.setDeviceInfo(g_device);
+    refreshDeviceInfo();
     logDiagnostics(g_device.name.c_str());
     g_lastDiagMs = millis();
   }

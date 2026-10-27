@@ -1,6 +1,6 @@
 // Minimal dependency-free JSON document type and parser used by the SNTCH core.
 // Bounded by design: fixed depth and node budget so a malformed request cannot
-// exhaust the ESP32-S3 heap.
+// exhaust the ESP32 heap.
 #pragma once
 
 #include <string>

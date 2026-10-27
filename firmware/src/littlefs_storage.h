@@ -6,12 +6,13 @@
 
 namespace sntch_fw {
 
-// Storage on the ESP32-S3 internal flash. Writes are staged to <path>.tmp and
+// Storage on ESP32 internal flash. Writes are staged to <path>.tmp and
 // renamed, matching the documented recovery behaviour.
 class LittleFsStorage : public sntch::Storage {
  public:
   bool begin() override;
   std::string read(const std::string& path) override;
+  bool exists(const std::string& path) override;
   bool write(const std::string& path, const std::string& data) override;
   bool writeAtomic(const std::string& path, const std::string& data) override;
   bool remove(const std::string& path) override;

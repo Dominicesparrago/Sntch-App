@@ -166,8 +166,10 @@ student answer text lives in `/sub/` files and is only fetched on demand.
 Writes are staged to `*.tmp`, flushed, then renamed, so a power cut leaves either the old or
 the new file (never a torn one). On boot the controller:
 
-1. loads `/state.json`; if it is missing or unparsable it starts empty and reports
-   `storageError` in `/api/health`,
+1. loads `/state.json`; a missing file is initialized only when the explicitly uploaded pending
+   filesystem marker is present. An empty, malformed, unsupported-version, or incomplete state file
+   stops startup and is left untouched. Existing valid markerless state is adopted without changing
+   its data; a missing state file with an installed marker stops startup,
 2. restores sessions, and **downgrades any `live` session to `paused`** (nobody can walk out of
    the room with a session still accepting work after a brownout),
 3. restores attempts with their persisted `remainingSec`,
@@ -180,14 +182,14 @@ sessions rather than silently accepting unpersisted work. Diagnostics in `/api/h
 
 ## 7. Deliberate V1 limitations
 
-- **No wall clock.** The ESP32-S3 has no RTC and no internet. Activities/exams carry no absolute
+- **No wall clock.** The ESP32 controller has no battery-backed real-time clock or internet. Activities/exams carry no absolute
   open/due timestamps and sessions expire by duration, not clock time. Attendance dates are
   supplied by the teacher app (its own clock) as `YYYY-MM-DD` and stored as plain strings.
 - **No TLS.** All traffic stays on the controller's WPA2 access point. Teacher/student tokens are
   bearer strings on a network the teacher owns; this is documented as a limited-trust model, not
   a hardened one.
 - **Polling, not push.** Snapshots are small and bounded; a 50-student room costs roughly
-  25 requests/second worst case, well inside the ESP32-S3's ability.
+  25 requests/second worst case, within the supported ESP32 targets' capacity.
 - **One attempt per exam.** The prototype's "2 attempts (planned)" stays unimplemented.
 - **Results policy** is global (`resultsPolicy.showCorrect`); the teacher app toggles it locally
   because it only affects what the student screen renders.

@@ -3,16 +3,36 @@
 #include <Arduino.h>
 
 namespace sntch_fw {
+namespace {
+
+void collectFiles(File directory, std::vector<std::string>& out) {
+  for (File entry = directory.openNextFile(); entry; entry = directory.openNextFile()) {
+    if (entry.isDirectory()) {
+      collectFiles(entry, out);
+    } else {
+      std::string path = entry.path();
+      if (!path.empty() && path[0] != '/') path.insert(path.begin(), '/');
+      out.push_back(path);
+    }
+    entry.close();
+  }
+}
+
+}  // namespace
 
 bool LittleFsStorage::begin() {
-  // Format on first boot / after a filesystem change so a fresh board comes up
-  // usable without a manual uploadfs step.
-  if (!LittleFS.begin(true)) {
-    Serial.println("[sntch] LittleFS mount failed");
+  // Never format automatically: a mount failure cannot distinguish a blank
+  // partition from corruption or a partition-layout mismatch.
+  if (!LittleFS.begin(false)) {
+    Serial.println("[sntch] ERROR: LittleFS mount failed; filesystem was not formatted");
     return false;
   }
-  if (!LittleFS.exists("/sub")) LittleFS.mkdir("/sub");
-  if (!LittleFS.exists("/att")) LittleFS.mkdir("/att");
+  if ((!LittleFS.exists("/sub") && !LittleFS.mkdir("/sub")) ||
+      (!LittleFS.exists("/att") && !LittleFS.mkdir("/att"))) {
+    Serial.println("[sntch] ERROR: LittleFS mounted but required directories could not be created");
+    LittleFS.end();
+    return false;
+  }
   Serial.printf("[sntch] LittleFS mounted: %u/%u bytes used\n",
                 static_cast<unsigned>(LittleFS.usedBytes()),
                 static_cast<unsigned>(LittleFS.totalBytes()));
@@ -40,6 +60,10 @@ std::string LittleFsStorage::read(const std::string& path) {
   }
   file.close();
   return data;
+}
+
+bool LittleFsStorage::exists(const std::string& path) {
+  return LittleFS.exists(path.c_str());
 }
 
 bool LittleFsStorage::write(const std::string& path, const std::string& data) {
@@ -76,10 +100,8 @@ std::vector<std::string> LittleFsStorage::list(const std::string& dir) {
   std::vector<std::string> out;
   File root = LittleFS.open(dir.c_str());
   if (!root || !root.isDirectory()) return out;
-  for (File file = root.openNextFile(); file; file = root.openNextFile()) {
-    out.push_back(file.path());
-    file.close();
-  }
+  collectFiles(root, out);
+  root.close();
   return out;
 }
 

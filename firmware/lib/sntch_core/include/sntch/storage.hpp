@@ -1,5 +1,5 @@
 // Storage abstraction: the classroom core never talks to LittleFS directly, so
-// the same logic runs on the ESP32-S3 and in host tests/simulator.
+// the same logic runs on supported ESP32 targets and in host tests/simulator.
 #pragma once
 
 #include <cstddef>
@@ -15,6 +15,7 @@ class Storage {
   virtual bool begin() { return true; }
   // Empty string means "missing".
   virtual std::string read(const std::string& path) = 0;
+  virtual bool exists(const std::string& path) { return !read(path).empty(); }
   virtual bool write(const std::string& path, const std::string& data) = 0;
   // Stage to <path>.tmp then rename, so a reset mid-write cannot tear the file.
   virtual bool writeAtomic(const std::string& path, const std::string& data) {
@@ -36,6 +37,8 @@ class MemoryStorage : public Storage {
     std::map<std::string, std::string>::const_iterator it = files_.find(path);
     return it == files_.end() ? std::string() : it->second;
   }
+
+  bool exists(const std::string& path) { return files_.find(path) != files_.end(); }
 
   bool write(const std::string& path, const std::string& data) {
     if (failWrites_) return false;

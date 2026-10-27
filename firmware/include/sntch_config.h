@@ -8,16 +8,16 @@
 
 // Access point. WPA2 needs at least 8 characters: change this before a real class.
 #ifndef SNTCH_AP_SSID
-#define SNTCH_AP_SSID "SNTCH-CLASS"
+#define SNTCH_AP_SSID "SNTCH-EXAM"
 #endif
 #ifndef SNTCH_AP_PASSWORD
-#define SNTCH_AP_PASSWORD "sntch1234"
+#define SNTCH_AP_PASSWORD "sntch-1234"
 #endif
 #ifndef SNTCH_AP_CHANNEL
-#define SNTCH_AP_CHANNEL 6
+#define SNTCH_AP_CHANNEL 1
 #endif
 
-// The ESP32-S3 access point supports up to 10 associated stations. This is the
+// The ESP32 access point supports up to 10 associated stations. This is the
 // hard limit behind the "50 students" data model; see docs/FIRMWARE.md.
 #ifndef SNTCH_AP_MAX_CLIENTS
 #define SNTCH_AP_MAX_CLIENTS 10

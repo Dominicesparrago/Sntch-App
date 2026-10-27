@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs the SNTCH host simulator on port 8080 with data in .sim-data/.
-# Use it to exercise the Android app without an ESP32-S3.
+# Use it to exercise the Android app without the physical ESP32-WROOM-32D.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

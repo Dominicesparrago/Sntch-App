@@ -1153,7 +1153,7 @@ function vSession(id) {
   }).join('');
   return `${backLink('#teacher/sessions', 'All sessions')}
   <div class="page-head"><div class="grow"><p class="small muted">${s.refType === 'exam' ? 'Examination' : 'Activity'} · section ${s.target}</p><h1>${esc(s.title)}</h1></div>${badge(st)}</div>
-  ${notice('warn', '<strong>Simulated session.</strong> Joins, submissions, and status changes are simulated in this browser. No real Wi-Fi clients are connected to an ESP32-S3.')}
+  ${notice('warn', '<strong>Simulated session.</strong> Joins, submissions, and status changes are simulated in this browser. No real Wi-Fi clients are connected to an ESP32-WROOM-32D.')}
   <div class="btn-row">${controls.join('')}</div>
   <div class="grid two">
     ${card('Join information', `<div class="join-box"><p class="xs muted">Session code</p><p class="code code-lg">${s.code}</p><button type="button" class="btn btn-sm" data-action="copy-code" data-code="${s.code}">${I('copy')}Copy code</button></div>
@@ -1273,7 +1273,7 @@ function vDevice() {
   const d = S.device, n = connectedClients(), cap = S.settings.capacity, running = U.diag;
   return `${notice('warn', '<strong>All readings on this screen are simulated.</strong> Real access-point range, client compatibility, memory use, and concurrent exam traffic must be tested on hardware.')}
   <div class="grid two">
-    ${card('Controller (ESP32-S3, simulated)', `<div class="dev-hero"><span class="dev-ico">${I('cpu')}</span><div class="grow"><h2>SNTCH controller</h2><p class="small muted">Local Wi-Fi network · no internet needed</p></div>${badge(d.status)}</div>
+    ${card('Controller (ESP32-WROOM-32D, simulated)', `<div class="dev-hero"><span class="dev-ico">${I('cpu')}</span><div class="grow"><h2>SNTCH controller</h2><p class="small muted">Local Wi-Fi network · no internet needed</p></div>${badge(d.status)}</div>
       <dl class="facts"><div><dt>Local network (SSID)</dt><dd class="mono">${esc(d.ssid)}</dd></div><div><dt>Controller IP</dt><dd class="mono">${esc(d.ip)}</dd></div><div><dt>Wi-Fi channel</dt><dd class="mono">${d.channel}</dd></div><div><dt>Last sync</dt><dd>${rel(d.lastSync)}</dd></div><div><dt>Clients (simulated)</dt><dd class="mono">${n} of ${cap} target</dd></div><div><dt>Firmware</dt><dd class="mono">${esc(d.firmware)}</dd></div></dl>
       <p class="small muted mt">Storage used (simulated): <b class="mono">${d.storage}%</b></p>${bar(d.storage, 'Simulated storage used')}`,
       `<button type="button" class="btn btn-sm ${running ? 'is-loading' : ''}" data-action="dev-diag" ${running ? 'disabled' : ''}>${I('refresh')}${running ? 'Running…' : 'Run diagnostics'}</button>`)}
@@ -1282,7 +1282,7 @@ function vDevice() {
   </div>
   ${card('Diagnostics (simulated)', `<div class="table-wrap"><table class="data-table"><thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead><tbody>${diagChecks().map(c => `<tr><td data-label="Check" class="cell-main">${c.label}</td><td data-label="Result">${badge(c.res)}</td><td data-label="Detail" class="small">${esc(c.note)}</td></tr>`).join('')}</tbody></table></div>`)}
   <div class="grid two">
-    ${card('Local network (local only)', `<form data-form="device" novalidate><label class="field"><span class="label">Network name (SSID)</span><input class="input mono" name="ssid" maxlength="32" value="${esc(d.ssid)}"><span class="hint">Saved locally. Changing it here does not reconfigure the ESP32-S3.</span></label>
+    ${card('Local network (local only)', `<form data-form="device" novalidate><label class="field"><span class="label">Network name (SSID)</span><input class="input mono" name="ssid" maxlength="32" value="${esc(d.ssid)}"><span class="hint">Saved locally. Changing it here does not reconfigure the ESP32-WROOM-32D.</span></label>
       <div class="row-2"><label class="field"><span class="label">Controller IP</span><input class="input mono" name="ip" value="${esc(d.ip)}" inputmode="decimal"></label><label class="field"><span class="label">Wi-Fi channel</span><input class="input mono" type="number" name="channel" min="1" max="13" value="${d.channel}"></label></div>
       <button type="submit" class="btn btn-primary">Save locally</button></form>`)}
     ${card('Optional hardware (planned)', `<ul class="list"><li class="list-item"><div class="grow">Small TFT status display</div>${badge('planned')}</li><li class="list-item"><div class="grow">Physical buttons and buzzer</div>${badge('planned')}</li></ul><p class="xs muted mt">Normal teacher and student workflows do not depend on this hardware.</p>`)}
@@ -1322,7 +1322,7 @@ function vSettings() {
       <p class="xs muted mt">Browser-based checks are not tamper-proof proctoring.</p>`)}
   </div>
   <div class="grid two">
-    ${card('Hardware', `<p class="small">Controller: ESP32-S3. Status shown here is simulated.</p>
+    ${card('Hardware', `<p class="small">Controller: ESP32-WROOM-32D. Status shown here is simulated.</p>
       ${field('Display and button configuration', '<select class="select" disabled><option>Not defined yet</option></select>', 'Planned hardware decision.')}
       <p class="xs muted">${badge('planned')}</p>`)}
     ${card('Data', '<p class="small">Clears every record added in this browser and returns the app to its empty starting state.</p>', `<button type="button" class="btn btn-sm btn-danger" data-action="reset-demo">${I('refresh')}Clear all data</button>`)}
@@ -1544,7 +1544,7 @@ ACTIONS['confirm-yes'] = () => { const cb = CONFIRM_CB; closeModal(false); if (c
 ACTIONS['set-role'] = el => { location.hash = el.dataset.role === 'student' ? '#student/home' : '#teacher/dashboard'; };
 ACTIONS['about'] = () => openModal({
   title: 'About this prototype',
-  body: '<ul class="stack-list"><li><strong>Simulated:</strong> sessions, joins, responses, device readings, and exam timers exist only in this browser.</li><li><strong>Working here:</strong> navigation, validation, the exam flow, CSV export (a dialog with copyable text), and local data.</li><li><strong>Not included:</strong> backend, Android apps, ESP32-S3 firmware, real authentication, and tamper-proof proctoring.</li></ul>',
+  body: '<ul class="stack-list"><li><strong>Simulated:</strong> sessions, joins, responses, device readings, and exam timers exist only in this browser.</li><li><strong>Working here:</strong> navigation, validation, the exam flow, CSV export (a dialog with copyable text), and local data.</li><li><strong>Not included:</strong> backend, Android apps, ESP32-WROOM-32D firmware, real authentication, and tamper-proof proctoring.</li></ul>',
   foot: '<button type="button" class="btn btn-primary" data-action="modal-close">Close</button>'
 });
 ACTIONS['reset-demo'] = () => confirmBox({

@@ -1,8 +1,9 @@
 # Implementation status
 
-Last verified in this environment: firmware builds, 222 native checks, 79 HTTP end-to-end checks,
-33 Android JVM tests (including payloads captured from the live controller), debug APK builds. **No ESP32-S3 hardware and no Android device/emulator were
-used.** Anything below marked "host-tested" was exercised in simulation, not on a phone or board.
+Last verified in this environment: ESP32-WROOM-32D firmware build, 284 native checks, 79 HTTP
+end-to-end checks, 33 Android JVM tests (including payloads captured from the live controller),
+debug APK builds. **No ESP32 hardware and no Android device/emulator were used.** Anything below
+marked "host-tested" was exercised in simulation, not on a phone or board.
 
 ## 1. Verification levels
 
@@ -15,7 +16,7 @@ used.** Anything below marked "host-tested" was exercised in simulation, not on 
 
 | Feature | Implemented | Compiled | Host-tested | Hardware |
 |---|---|---|---|---|
-| ESP32-S3 app, WPA2 access point, HTTP/JSON API | yes | yes | E2E (same core over TCP) | no |
+| ESP32-WROOM-32D app, WPA2 access point, HTTP/JSON API | yes | yes | E2E (same core over TCP) | no |
 | LittleFS persistence + atomic writes + boot recovery | yes | yes | native (memory storage, restart) | no |
 | Teacher PIN sign-in, bearer tokens, role separation | yes | yes | native + E2E + JVM | no |
 | Roster import/upsert, section targeting, 50-student limit | yes | yes | native + E2E + JVM | no |
@@ -50,7 +51,7 @@ GitScribe; until then no GitScribe operation is claimed.
 
 ## 4. Known limitations
 
-1. **Access-point capacity.** ESP32-S3 associates at most 10 stations, so one controller serves
+1. **Access-point capacity.** The configured ESP32-WROOM-32D access point allows at most 10 stations, so one controller serves
    ~8–10 phones, not 40–50. The data model holds 50. Options are in `docs/FIRMWARE.md` §5.
 2. **No real-time clock.** No absolute scheduling, no wall-clock timestamps in results. Sessions
    expire by duration; attendance dates come from the teacher's phone.
@@ -59,7 +60,7 @@ GitScribe; until then no GitScribe operation is claimed.
 5. **No destructive operations** (delete student/item/submission) and **no CSV export** in V1;
    the corresponding prototype buttons were removed rather than left non-functional.
 6. **No QR scanning**; codes are typed. No camera permission is requested.
-7. **No Wi-Fi auto-connect**; the user joins `SNTCH-CLASS` in system settings.
+7. **No Wi-Fi auto-connect**; the user joins `SNTCH-EXAM` in system settings.
 8. **UI unverified on a device.** No screenshot, layout or gesture claim is made.
 9. **Hardware unverified.** The firmware image has never run on a board in this environment.
 10. **Nonexistent scheduling UI**: the prototype's open/due window fields were dropped instead of
@@ -85,8 +86,8 @@ GitScribe; until then no GitScribe operation is claimed.
 Created:
 
 - `firmware/lib/sntch_core/` — JSON, storage abstraction, classroom domain, HTTP/JSON API
-- `firmware/src/` — ESP32-S3 boot, Wi-Fi AP, WebServer adapter, LittleFS storage, diagnostics
-- `firmware/test/core_tests.cpp` — 222-check native suite
+- `firmware/src/` — ESP32 boot, Wi-Fi AP, WebServer adapter, LittleFS storage, diagnostics
+- `firmware/test/core_tests.cpp` — 284-check native suite
 - `firmware/platformio.ini`
 - `tools/host_sim/main.cpp` — simulator serving the same core
 - `tools/e2e_test.py`, `tools/capture_fixtures.py`, `tools/native_build.sh`, `tools/run_sim.sh`,

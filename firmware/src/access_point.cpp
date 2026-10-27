@@ -21,7 +21,7 @@ bool AccessPoint::begin() {
     return false;
   }
 
-  // The ESP32-S3 access point tops out at 10 associated stations; that ceiling,
+  // The configured ESP32 access point supports up to 10 associated stations; that ceiling,
   // not the data model, is the real classroom size for one controller.
   wifi_config_t config;
   if (esp_wifi_get_config(WIFI_IF_AP, &config) == ESP_OK) {
@@ -35,6 +35,13 @@ bool AccessPoint::begin() {
 }
 
 int AccessPoint::clientCount() const { return WiFi.softAPgetStationNum(); }
+
+bool AccessPoint::isRunning() const {
+  wifi_mode_t mode = WIFI_MODE_NULL;
+  wifi_sta_list_t stations;
+  return esp_wifi_get_mode(&mode) == ESP_OK && (mode & WIFI_MODE_AP) != 0 &&
+         esp_wifi_ap_get_sta_list(&stations) == ESP_OK;
+}
 
 String AccessPoint::ip() const { return WiFi.softAPIP().toString(); }
 

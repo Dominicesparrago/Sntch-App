@@ -460,7 +460,7 @@ private fun JoinScreen(controller: StudentController, onExitRole: () -> Unit) {
         SntchCard(title = "Connection") {
             Field(address, { address = it }, "Controller address", keyboardType = KeyboardType.Uri)
             Text(
-                "1. Connect this phone to the SNTCH-CLASS Wi-Fi network.\n" +
+                "1. Connect this phone to the SNTCH-EXAM Wi-Fi network.\n" +
                     "2. Keep mobile data off if your phone prefers the internet.\n" +
                     "3. Join with the code your teacher shows.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -1154,7 +1154,7 @@ private fun StudentProfile(controller: StudentController, onExitRole: () -> Unit
         SntchCard(title = "Connection") {
             Field(address, { address = it }, "Controller address", keyboardType = KeyboardType.Uri)
             Text(
-                "The controller is the classroom ESP32-S3 access point. No internet is used.",
+                "The controller is the classroom ESP32-WROOM-32D access point. No internet is used.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

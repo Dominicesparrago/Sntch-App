@@ -36,7 +36,7 @@ The app needs no API key, no Play Services and no internet permission beyond the
 Cleartext HTTP is allowed in `network_security_config.xml` because the controller serves plain
 HTTP on a private access point.
 
-The user must connect the phone to `SNTCH-CLASS` in system settings; the app does not request
+The user must connect the phone to `SNTCH-EXAM` in system settings; the app does not request
 location or Wi-Fi control permissions and does not silently switch networks.
 
 ## 3. Code map
@@ -75,7 +75,7 @@ repository, the repository calls `SntchApi`.
 
 **Student**
 
-1. Connect to `SNTCH-CLASS`, choose Student, enter session code and student number.
+1. Connect to `SNTCH-EXAM`, choose Student, enter session code and student number.
 2. Home shows the session state and open work.
 3. Activities: write 10–500 characters and submit; the draft stays on the phone until submitted.
 4. Examinations: start when the session is live; answers autosave after each change; pause freezes

@@ -46,7 +46,12 @@ class FileStorage : public Storage {
     std::error_code ec;
     fs::create_directories(path("/sub"), ec);
     fs::create_directories(path("/att"), ec);
-    return !ec;
+    if (ec) return false;
+    if (!exists("/state.json") && !exists("/sntch_initialized.txt") &&
+        !exists("/sntch_pending_init.txt") && list("/").empty()) {
+      return write("/sntch_pending_init.txt", "SNTCH-PENDING-INIT-V1");
+    }
+    return true;
   }
 
   std::string read(const std::string& p) {
@@ -54,6 +59,11 @@ class FileStorage : public Storage {
     if (!in) return std::string();
     std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     return data;
+  }
+
+  bool exists(const std::string& p) {
+    std::error_code ec;
+    return fs::exists(path(p), ec) && !ec;
   }
 
   bool write(const std::string& p, const std::string& data) {
@@ -222,11 +232,15 @@ int main(int argc, char** argv) {
   classroom.setSeed(static_cast<unsigned long>(
       std::chrono::system_clock::now().time_since_epoch().count()));
   bool loaded = classroom.load();
+  if (!loaded) {
+    std::printf("storage startup failed: %s\n", classroom.lastError().c_str());
+    return 1;
+  }
 
   auto started = std::chrono::steady_clock::now();
   DeviceInfo info;
   info.name = "SNTCH-SIM";
-  info.ssid = "SNTCH-CLASS";
+  info.ssid = "SNTCH-EXAM";
   info.ip = "127.0.0.1";
   info.firmware = "0.1.0-host-sim";
   Api api(&classroom, info);

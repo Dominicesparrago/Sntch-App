@@ -12,6 +12,28 @@ const Ms kTeacherTokenTtlMs = 8ULL * 60 * 60 * 1000;
 const Ms kStudentTokenTtlMs = 2ULL * 60 * 60 * 1000;
 const Ms kSessionGraceMs = 10ULL * 60 * 1000;
 const size_t kMaxAnswerBytes = 2048;
+const char* const kInitializedMarker = "/sntch_initialized.txt";
+const char* const kInitializedValue = "SNTCH-INITIALIZED-V1";
+const char* const kPendingMarker = "/sntch_pending_init.txt";
+const char* const kPendingValue = "SNTCH-PENDING-INIT-V1";
+
+bool supportedState(const std::string& raw) {
+  Json root;
+  if (!parseJson(raw, root, 0) || !root.isObject() || root.integer("v", 0) != 1) return false;
+  const char* arrays[] = {"students", "activities", "exams", "sessions",
+                          "submissions", "attendance", "attempts", "events"};
+  for (size_t k = 0; k < sizeof(arrays) / sizeof(arrays[0]); ++k) {
+    const Json* value = root.find(arrays[k]);
+    if (!value || !value->isArray()) return false;
+  }
+  return true;
+}
+
+bool markerMatches(std::string value, const char* expected) {
+  while (!value.empty() && (value[value.size() - 1] == '\n' || value[value.size() - 1] == '\r'))
+    value.erase(value.size() - 1);
+  return value == expected;
+}
 
 std::string formatCode(unsigned v) {
   char buf[8];
@@ -322,20 +344,90 @@ bool Classroom::save() {
 
 bool Classroom::load() {
   storageError_ = false;
+  lastError_.clear();
   if (!storage_) {
     storageError_ = true;
+    lastError_ = "STORAGE_UNAVAILABLE";
     return false;
   }
+  const bool hasMarker = storage_->exists(kInitializedMarker);
+  const bool hasPending = storage_->exists(kPendingMarker);
+  bool hasState = storage_->exists("/state.json");
+  std::string pending = hasPending ? storage_->read(kPendingMarker) : std::string();
+  std::string marker = hasMarker ? storage_->read(kInitializedMarker) : std::string();
+
+  // Recover a complete staged snapshot after power loss between removing the
+  // old state file and renaming state.json.tmp into place.
+  if (!hasState && storage_->exists("/state.json.tmp")) {
+    const std::string staged = storage_->read("/state.json.tmp");
+    if (supportedState(staged)) {
+      if (!storage_->writeAtomic("/state.json", staged)) {
+        storageError_ = true;
+        lastError_ = "STATE_RECOVERY_FAILED";
+        return false;
+      }
+      hasState = true;
+    }
+  }
+
+  if (!hasState) {
+    if (hasMarker) {
+      storageError_ = true;
+      lastError_ = markerMatches(marker, kInitializedValue) ? "INITIALIZED_STATE_MISSING" : "INITIALIZATION_MARKER_INVALID";
+      return false;
+    }
+    if (hasPending && markerMatches(pending, kPendingValue)) {
+      // The pending marker is included only in an explicitly uploaded fresh
+      // LittleFS image. Refuse to initialize over any other files.
+      const std::vector<std::string> files = storage_->list("/");
+      for (size_t k = 0; k < files.size(); ++k) {
+        if (files[k] != kPendingMarker) {
+          storageError_ = true;
+          lastError_ = "PENDING_INITIALIZATION_HAS_OTHER_FILES";
+          return false;
+        }
+      }
+      if (!save()) {
+        storageError_ = true;
+        lastError_ = "INITIAL_STATE_WRITE_FAILED";
+        return false;
+      }
+      hasState = true;
+    } else {
+      storageError_ = true;
+      lastError_ = hasPending ? "PENDING_INITIALIZATION_MARKER_INVALID" :
+          (storage_->list("/").empty() ? "INITIALIZATION_REQUIRED" : "UNMARKED_FILESYSTEM_HAS_DATA");
+      return false;
+    }
+  }
+
   std::string raw = storage_->read("/state.json");
-  if (raw.empty()) return true;  // fresh device
+  if (!supportedState(raw) && storage_->exists("/state.json.tmp")) {
+    const std::string staged = storage_->read("/state.json.tmp");
+    if (supportedState(staged) && storage_->writeAtomic("/state.json", staged))
+      raw = storage_->read("/state.json");
+  }
+  if (!supportedState(raw)) {
+    storageError_ = true;
+    lastError_ = "CORRUPT_OR_INCOMPATIBLE_STATE";
+    return false;
+  }
+
+  // A valid pre-marker SNTCH snapshot is positive evidence of an existing
+  // installation, so adopt it without changing the classroom data format.
+  // Pending init is committed only after the initial snapshot is durable.
+  if (!hasMarker || !markerMatches(marker, kInitializedValue)) {
+    if (!storage_->writeAtomic(kInitializedMarker, kInitializedValue) ||
+        storage_->read(kInitializedMarker) != kInitializedValue) {
+      storageError_ = true;
+      lastError_ = "INITIALIZATION_MARKER_WRITE_FAILED";
+      return false;
+    }
+  }
+  if (hasPending) storage_->remove(kPendingMarker);
 
   Json root;
-  std::string err;
-  if (!parseJson(raw, root, &err) || !root.isObject()) {
-    storageError_ = true;
-    lastError_ = "CORRUPT_STATE";
-    return false;
-  }
+  parseJson(raw, root, 0);  // validated above
 
   nextStudentId_ = static_cast<unsigned>(root.integer("nextStudentId", 1));
   nextItemId_ = static_cast<unsigned>(root.integer("nextItemId", 1));

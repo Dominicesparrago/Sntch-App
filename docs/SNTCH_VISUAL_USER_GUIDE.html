@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10281D">
+  <meta name="description" content="Offline-first SNTCH setup and classroom user guide for the ESP32-WROOM-32D.">
+  <title>SNTCH | Visual User Guide</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --deep: #10281D;
+      --forest: #14532D;
+      --emerald: #059669;
+      --mint: #34D399;
+      --pale: #DCECE2;
+      --paper: #F5F8F5;
+      --white: #FFFFFF;
+      --ink: #183126;
+      --muted: #587064;
+      --line: #D8E3DB;
+      --warning: #7A4B08;
+      --warning-bg: #FFF5DB;
+      --danger: #8B3333;
+      --danger-bg: #FFF0ED;
+      --success-bg: #E9F8F0;
+      --shadow: 0 16px 40px rgba(16, 40, 29, .08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+    body { margin: 0; color: var(--ink); background: var(--paper); line-height: 1.62; }
+    a { color: var(--forest); text-underline-offset: .18em; }
+    a:hover { color: var(--emerald); }
+    code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    code { padding: .12em .36em; border: 1px solid var(--line); border-radius: 6px; background: #F2F6F3; font-size: .92em; overflow-wrap: anywhere; }
+    pre { margin: 0; padding: 1rem 1.1rem; border-radius: 12px; color: #EAF8EF; background: #10281D; overflow: auto; font-size: .9rem; line-height: 1.6; }
+    pre code { padding: 0; border: 0; background: none; color: inherit; white-space: pre; }
+    .topbar { position: sticky; z-index: 5; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 62px; padding: .55rem clamp(1rem, 4vw, 3.5rem); color: white; background: var(--deep); border-bottom: 1px solid rgba(255,255,255,.12); }
+    .brand { display: flex; align-items: center; gap: .65rem; color: white; text-decoration: none; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
+    .brand-mark { display: grid; width: 32px; height: 32px; place-items: center; color: var(--deep); background: var(--mint); border-radius: 10px 10px 10px 3px; font-size: .83rem; }
+    .nav { display: flex; gap: .25rem; overflow-x: auto; scrollbar-width: thin; }
+    .nav a { padding: .4rem .58rem; color: #E2F2E8; text-decoration: none; white-space: nowrap; border-radius: 7px; font-size: .79rem; }
+    .nav a:hover, .nav a:focus-visible { color: white; background: rgba(255,255,255,.12); outline: none; }
+    .hero { padding: clamp(2.3rem, 6vw, 5.4rem) clamp(1rem, 6vw, 5.2rem) 3.2rem; color: white; background: var(--deep); }
+    .hero-inner { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(260px,.9fr); align-items: center; gap: clamp(1.5rem, 5vw, 4rem); max-width: 1220px; margin: auto; }
+    .eyebrow { color: var(--mint); font-size: .78rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    h1 { max-width: 760px; margin: .65rem 0 1rem; font-size: clamp(2.25rem, 5.8vw, 4.7rem); line-height: 1.02; letter-spacing: -.045em; }
+    .hero p { max-width: 680px; margin: 0; color: #D5E7DC; font-size: clamp(1rem, 1.8vw, 1.17rem); }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: 1.45rem; }
+    .tag { padding: .32rem .68rem; color: #E8F7EE; border: 1px solid rgba(255,255,255,.22); border-radius: 999px; font-size: .78rem; }
+    .hero-visual { padding: .9rem; border: 1px solid rgba(255,255,255,.16); border-radius: 20px; background: rgba(255,255,255,.06); box-shadow: 0 24px 60px rgba(0,0,0,.18); }
+    .hero-visual svg { display: block; width: 100%; height: auto; }
+    .hero-note { margin: .5rem .35rem 0; color: #BBD5C6; font-size: .76rem; text-align: center; }
+    main { width: min(1160px, calc(100% - 2rem)); margin: 0 auto; }
+    .quickfacts { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin: -1.15rem 0 2.6rem; position: relative; }
+    .fact { padding: 1rem 1.05rem; background: white; border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+    .fact strong { display: block; color: var(--forest); font-size: .96rem; }
+    .fact span { display: block; margin-top: .15rem; color: var(--muted); font-size: .78rem; }
+    section { margin: 0 0 3.7rem; }
+    .section-head { display: grid; grid-template-columns: 46px 1fr; align-items: start; gap: .9rem; margin: 0 0 1.2rem; }
+    .section-num { display: grid; width: 42px; height: 42px; place-items: center; color: white; background: var(--forest); border-radius: 13px 13px 13px 4px; font-weight: 800; }
+    h2 { margin: 0; color: var(--deep); font-size: clamp(1.55rem, 3vw, 2.25rem); letter-spacing: -.025em; line-height: 1.18; }
+    .section-head p { margin: .3rem 0 0; color: var(--muted); }
+    h3 { margin: 0 0 .55rem; color: var(--forest); font-size: 1.08rem; line-height: 1.3; }
+    p { margin: .5rem 0; }
+    .card { padding: clamp(1rem, 2.6vw, 1.5rem); background: white; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 8px 24px rgba(16,40,29,.045); }
+    .card p:first-child { margin-top: 0; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1rem; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .85rem; }
+    .diagram { margin: 1rem 0 0; padding: .8rem; border: 1px solid var(--line); border-radius: 14px; background: #F8FBF8; }
+    .diagram svg { display: block; width: 100%; height: auto; }
+    figcaption { margin: .55rem .25rem .1rem; color: var(--muted); font-size: .78rem; text-align: center; }
+    .small { color: var(--muted); font-size: .86rem; }
+    .callout { display: grid; grid-template-columns: 28px 1fr; gap: .75rem; margin: 1rem 0; padding: .95rem 1rem; color: #4C3A14; background: var(--warning-bg); border: 1px solid #F1D89A; border-left: 4px solid #D79B22; border-radius: 10px; }
+    .callout.danger { color: #562929; background: var(--danger-bg); border-color: #EDBDB6; border-left-color: var(--danger); }
+    .callout.success { color: #1B5138; background: var(--success-bg); border-color: #B7E2C9; border-left-color: var(--emerald); }
+    .callout p { margin: 0; }
+    .callout strong { display: block; margin-bottom: .15rem; }
+    .call-icon { display: grid; width: 26px; height: 26px; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-weight: 800; }
+    .step-list { display: grid; gap: .8rem; counter-reset: setup; }
+    .step { display: grid; grid-template-columns: 42px minmax(0,1fr); gap: .9rem; padding: 1rem; background: white; border: 1px solid var(--line); border-radius: 14px; counter-increment: setup; }
+    .step::before { content: counter(setup, decimal-leading-zero); display: grid; width: 38px; height: 38px; place-items: center; color: white; background: var(--emerald); border-radius: 12px; font-weight: 800; font-size: .82rem; }
+    .step h3 { margin: .1rem 0 .35rem; }
+    .step p { margin: .25rem 0; }
+    .step .cmd { margin-top: .55rem; }
+    .workflow { display: grid; grid-template-columns: repeat(4,1fr); gap: .7rem; margin: 1rem 0; }
+    .flow-step { position: relative; min-height: 112px; padding: .95rem .9rem; background: white; border: 1px solid var(--line); border-radius: 13px; }
+    .flow-step:not(:last-child)::after { content: "›"; position: absolute; z-index: 1; top: 35%; right: -.53rem; display: grid; width: 25px; height: 25px; place-items: center; color: white; background: var(--emerald); border: 3px solid var(--paper); border-radius: 50%; font-size: 1.1rem; font-weight: 800; }
+    .flow-step b { display: block; margin-bottom: .3rem; color: var(--forest); }
+    .flow-step span { color: var(--muted); font-size: .83rem; }
+    .checkline { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: .8rem; }
+    .check { padding: .42rem .68rem; color: #1B5138; background: var(--success-bg); border: 1px solid #C9E8D4; border-radius: 8px; font-size: .82rem; }
+    .check::before { content: "✓ "; font-weight: 900; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { padding: .72rem .75rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--forest); background: #F0F6F1; font-size: .82rem; letter-spacing: .025em; }
+    tr:last-child td { border-bottom: 0; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: white; }
+    .pill { display: inline-block; padding: .18rem .48rem; color: var(--forest); background: var(--pale); border-radius: 999px; font-size: .76rem; font-weight: 700; }
+    .ui-schematic { display: grid; grid-template-columns: 170px minmax(0,1fr); min-height: 265px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: white; }
+    .ui-rail { padding: 1rem .8rem; color: #E8F5EC; background: var(--deep); }
+    .ui-rail b { display: block; margin: 0 0 .8rem .3rem; color: var(--mint); font-size: .82rem; letter-spacing: .08em; }
+    .ui-rail span { display: block; margin: .18rem 0; padding: .38rem .5rem; border-radius: 7px; color: #D1E2D7; font-size: .8rem; }
+    .ui-rail span.active { color: var(--deep); background: var(--mint); font-weight: 800; }
+    .ui-workspace { padding: 1rem; background: #F7FAF7; }
+    .ui-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding-bottom: .7rem; border-bottom: 1px solid var(--line); }
+    .ui-top b { color: var(--deep); }
+    .ui-top i { color: var(--muted); font-size: .75rem; font-style: normal; }
+    .ui-tiles { display: grid; grid-template-columns: repeat(3,1fr); gap: .5rem; margin: .7rem 0; }
+    .ui-tile { min-height: 62px; padding: .55rem; background: white; border: 1px solid var(--line); border-radius: 8px; }
+    .ui-tile b { display: block; color: var(--forest); font-size: .82rem; }
+    .ui-tile span { color: var(--muted); font-size: .68rem; }
+    .ui-list { padding: .65rem; background: white; border: 1px solid var(--line); border-radius: 8px; }
+    .ui-row { display: flex; justify-content: space-between; gap: .5rem; padding: .35rem 0; border-bottom: 1px solid #EDF2EE; font-size: .75rem; }
+    .ui-row:last-child { border: 0; }
+    .ui-row span:last-child { color: var(--emerald); font-weight: 700; }
+    .storage-flow { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); align-items: stretch; gap: .6rem; margin-top: .9rem; }
+    .storage-node { display: grid; align-content: center; min-height: 86px; padding: .6rem; text-align: center; background: white; border: 1px solid var(--line); border-radius: 11px; }
+    .storage-node strong { color: var(--forest); font-size: .82rem; }
+    .storage-node span { margin-top: .22rem; color: var(--muted); font-size: .72rem; }
+    .storage-arrow { align-self: center; color: var(--emerald); text-align: center; font-size: 1.3rem; font-weight: 900; }
+    .trouble { display: grid; grid-template-columns: minmax(140px,.72fr) minmax(0,1.35fr) minmax(0,1fr); }
+    .trouble th:first-child { border-radius: 11px 0 0 0; }
+    .trouble th:last-child { border-radius: 0 11px 0 0; }
+    .trouble td:first-child { color: var(--forest); font-weight: 750; }
+    .status-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: .75rem; }
+    .status-card { padding: .9rem; border: 1px solid var(--line); border-radius: 12px; background: white; }
+    .status-card b { display: block; margin-bottom: .2rem; color: var(--forest); }
+    .status-card span { color: var(--muted); font-size: .83rem; }
+    footer { margin-top: 4rem; padding: 2rem 1rem; color: #D7E9DD; background: var(--deep); }
+    .footer-inner { width: min(1160px,100%); margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    footer a { color: var(--mint); }
+    .foot-links { display: flex; flex-wrap: wrap; gap: 1rem; }
+    .mobile-hint { display: none; }
+    @media (max-width: 840px) {
+      .hero-inner { grid-template-columns: 1fr; }
+      .hero-visual { max-width: 620px; }
+      .quickfacts { grid-template-columns: repeat(2,1fr); }
+      .grid-3 { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .trouble { min-width: 760px; }
+      .table-scroll { overflow-x: auto; }
+    }
+    @media (max-width: 600px) {
+      .topbar { align-items: flex-start; flex-direction: column; gap: .15rem; padding-top: .55rem; }
+      .nav { width: 100%; margin: 0 -.2rem; }
+      .nav a { font-size: .74rem; }
+      .hero { padding-top: 2.2rem; }
+      main { width: min(100% - 1.1rem, 1160px); }
+      .quickfacts { gap: .5rem; }
+      .fact { padding: .75rem; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .workflow { grid-template-columns: 1fr 1fr; }
+      .flow-step { min-height: 100px; }
+      .flow-step:nth-child(2)::after { content: "↓"; top: auto; right: 45%; bottom: -.72rem; }
+      .flow-step:nth-child(3)::after { content: "›"; top: 35%; right: -.53rem; bottom: auto; }
+      .flow-step:nth-child(4)::after { display: none; }
+      .ui-schematic { grid-template-columns: 112px minmax(0,1fr); }
+      .ui-rail { padding: .75rem .45rem; }
+      .ui-rail span { font-size: .71rem; }
+      .ui-tiles { grid-template-columns: 1fr; }
+      .ui-tile { min-height: 0; }
+      .storage-flow { grid-template-columns: 1fr; }
+      .storage-arrow { transform: rotate(90deg); }
+      .status-grid { grid-template-columns: 1fr; }
+      .footer-inner { align-items: flex-start; flex-direction: column; }
+      .mobile-hint { display: block; }
+    }
+    @media print {
+      .topbar { position: static; }
+      .nav { display: none; }
+      body { background: white; }
+      .hero { padding: 1.5rem; print-color-adjust: exact; }
+      .hero-inner { grid-template-columns: 1.2fr .8fr; }
+      main { width: 100%; }
+      section, .card, .step, .diagram { break-inside: avoid; box-shadow: none; }
+      a { color: inherit; }
+      footer { print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="SNTCH guide home"><span class="brand-mark">S</span><span>SNTCH · FIELD GUIDE</span></a>
+    <nav class="nav" aria-label="Guide sections">
+      <a href="#system">System</a><a href="#hardware">Hardware</a><a href="#setup">Setup</a>
+      <a href="#connect">Connect</a><a href="#teacher">Teacher</a><a href="#student">Student</a>
+      <a href="#storage">Storage</a><a href="#troubleshoot">Help</a>
+    </nav>
+  </header>
+
+  <div class="hero" id="top">
+    <div class="hero-inner">
+      <div>
+        <div class="eyebrow">Offline-first classroom toolkit</div>
+        <h1>Teach, practice<br>and assess locally.</h1>
+        <p>A practical setup and use guide for SNTCH on the ESP32-WROOM-32D. The controller hosts the class network and keeps supported class data on local flash.</p>
+        <div class="hero-tags"><span class="tag">ESP32-WROOM-32D</span><span class="tag">Android · Teacher + Student</span><span class="tag">Works without internet</span></div>
+      </div>
+      <div class="hero-visual">
+        <svg viewBox="0 0 520 300" role="img" aria-labelledby="heroTitle heroDesc">
+          <title id="heroTitle">Local classroom system illustration</title>
+          <desc id="heroDesc">Two Android phones connect to a classroom access point on an ESP32 board. Local files are stored on the controller.</desc>
+          <rect x="16" y="18" width="488" height="264" rx="20" fill="#17382A" stroke="#557664"/>
+          <path d="M124 123 C180 60 342 60 397 123" fill="none" stroke="#34D399" stroke-width="3" stroke-dasharray="7 8"/>
+          <path d="M124 139 C192 91 329 91 397 139" fill="none" stroke="#34D399" stroke-width="2" opacity=".65"/>
+          <g transform="translate(47 103)"><rect width="78" height="136" rx="13" fill="#F7FBF8"/><rect x="7" y="12" width="64" height="104" rx="5" fill="#DCECE2"/><circle cx="39" cy="126" r="4" fill="#14532D"/><rect x="18" y="31" width="42" height="8" rx="4" fill="#059669"/><rect x="18" y="49" width="31" height="5" rx="2" fill="#769482"/><rect x="18" y="61" width="38" height="5" rx="2" fill="#A4B9AA"/><text x="39" y="162" fill="#EAF8EF" font-size="11" font-weight="700" text-anchor="middle">TEACHER</text></g>
+          <g transform="translate(397 103)"><rect width="78" height="136" rx="13" fill="#F7FBF8"/><rect x="7" y="12" width="64" height="104" rx="5" fill="#DCECE2"/><circle cx="39" cy="126" r="4" fill="#14532D"/><rect x="18" y="31" width="42" height="8" rx="4" fill="#059669"/><rect x="18" y="49" width="31" height="5" rx="2" fill="#769482"/><rect x="18" y="61" width="38" height="5" rx="2" fill="#A4B9AA"/><text x="39" y="162" fill="#EAF8EF" font-size="11" font-weight="700" text-anchor="middle">STUDENT</text></g>
+          <g transform="translate(183 156)"><rect width="154" height="77" rx="13" fill="#DCECE2" stroke="#34D399" stroke-width="2"/><rect x="12" y="14" width="35" height="48" rx="5" fill="#14532D"/><circle cx="29" cy="53" r="3" fill="#34D399"/><text x="58" y="30" fill="#10281D" font-size="13" font-weight="800">ESP32</text><text x="58" y="48" fill="#14532D" font-size="10">WROOM-32D</text><text x="58" y="64" fill="#587064" font-size="9">LOCAL API + WI-FI</text></g>
+          <g transform="translate(226 247)"><path d="M0 0h68v27a4 4 0 0 1-4 4h-60a4 4 0 0 1-4-4z" fill="#14532D" stroke="#34D399"/><text x="34" y="19" fill="#EAF8EF" font-size="10" font-weight="700" text-anchor="middle">LittleFS</text></g>
+          <text x="260" y="45" fill="#DDF6E6" font-size="12" font-weight="700" text-anchor="middle">SNTCH CLASSROOM WI-FI · LOCAL ONLY</text>
+        </svg>
+        <div class="hero-note">Schematic illustration · not a photograph of the board or app</div>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <div class="quickfacts" aria-label="Quick reference">
+      <div class="fact"><strong>SNTCH-EXAM</strong><span>Wi-Fi network name</span></div>
+      <div class="fact"><strong>sntch-1234</strong><span>Current default Wi-Fi password</span></div>
+      <div class="fact"><strong>192.168.4.1</strong><span>Controller address</span></div>
+      <div class="fact"><strong>115200 baud</strong><span>Serial monitor speed</span></div>
+    </div>
+
+    <section id="system">
+      <div class="section-head"><div class="section-num">01</div><div><h2>What is SNTCH?</h2><p>A classroom server in the room, with teacher and student apps on the local network.</p></div></div>
+      <div class="grid-2">
+        <article class="card">
+          <h3>One local classroom network</h3>
+          <p>The ESP32-WROOM-32D creates its own Wi-Fi access point. The Android apps use the controller’s HTTP API for teacher and student tasks. Supported classroom state is saved on the controller’s LittleFS partition.</p>
+          <p class="small">Normal classroom use does not require internet, a cloud service, an external router, a PC server, or a Raspberry Pi. The Arduino Uno is not required for core SNTCH operation.</p>
+          <div class="checkline"><span class="check">Teacher tools</span><span class="check">Student participation</span><span class="check">Local persistence</span></div>
+        </article>
+        <figure class="diagram">
+          <svg viewBox="0 0 720 310" role="img" aria-labelledby="archTitle archDesc">
+            <title id="archTitle">SNTCH local architecture</title><desc id="archDesc">Teacher and student Android devices connect by local Wi-Fi to an ESP32-WROOM-32D. LittleFS stores supported classroom data on the controller.</desc>
+            <defs><marker id="arrowA" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0v6l9-3z" fill="#059669"/></marker></defs>
+            <rect x="14" y="19" width="692" height="272" rx="18" fill="#F8FBF8"/>
+            <g transform="translate(35 82)"><rect width="125" height="142" rx="14" fill="#fff" stroke="#BFD4C5" stroke-width="2"/><rect x="13" y="13" width="99" height="99" rx="8" fill="#DCECE2"/><circle cx="62" cy="126" r="5" fill="#14532D"/><text x="62" y="52" text-anchor="middle" fill="#14532D" font-size="14" font-weight="700">Teacher</text><text x="62" y="72" text-anchor="middle" fill="#587064" font-size="11">Android app</text><text x="62" y="92" text-anchor="middle" fill="#587064" font-size="10">Sessions · Results</text></g>
+            <g transform="translate(35 22)"><rect width="125" height="42" rx="10" fill="#14532D"/><text x="62" y="18" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Teacher Android</text><text x="62" y="33" text-anchor="middle" fill="#DCECE2" font-size="10">local client</text></g>
+            <g transform="translate(35 236)"><rect width="125" height="42" rx="10" fill="#14532D"/><text x="62" y="18" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Student Android</text><text x="62" y="33" text-anchor="middle" fill="#DCECE2" font-size="10">local client</text></g>
+            <path d="M164 126 C240 126 252 110 310 110" fill="none" stroke="#059669" stroke-width="3" marker-end="url(#arrowA)"/><path d="M164 258 C240 258 252 190 310 190" fill="none" stroke="#059669" stroke-width="3" marker-end="url(#arrowA)"/>
+            <rect x="204" y="142" width="93" height="33" rx="16" fill="#DCECE2"/><text x="250" y="163" text-anchor="middle" fill="#14532D" font-size="11" font-weight="700">LOCAL Wi-Fi</text>
+            <g transform="translate(320 88)"><rect width="208" height="126" rx="17" fill="#10281D"/><rect x="18" y="21" width="44" height="82" rx="7" fill="#DCECE2"/><circle cx="40" cy="90" r="4" fill="#059669"/><text x="78" y="46" fill="#34D399" font-size="15" font-weight="800">ESP32-WROOM-32D</text><text x="78" y="68" fill="#EFF8F2" font-size="12">Wi-Fi access point</text><text x="78" y="88" fill="#EFF8F2" font-size="12">HTTP API · sessions</text><text x="78" y="106" fill="#BBD5C6" font-size="10">classic ESP32 · 4 MB flash</text></g>
+            <path d="M530 151h35" stroke="#059669" stroke-width="3" marker-end="url(#arrowA)"/>
+            <g transform="translate(578 105)"><rect width="108" height="91" rx="13" fill="#E9F8F0" stroke="#8BC7A3" stroke-width="2"/><path d="M31 28h48v38H31z" fill="#14532D"/><path d="M43 21h24v7H43z" fill="#059669"/><text x="54" y="82" text-anchor="middle" fill="#14532D" font-size="11" font-weight="800">LittleFS</text></g>
+            <text x="360" y="260" text-anchor="middle" fill="#587064" font-size="11">Local classroom data stays on the controller · no internet route is required</text>
+          </svg>
+          <figcaption>Teacher Android ─┐ and Student Android ─┘ connect over local Wi-Fi to the WROOM controller and its LittleFS storage.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section id="hardware">
+      <div class="section-head"><div class="section-num">02</div><div><h2>Hardware and connections</h2><p>The classroom system needs the controller and Android devices. The display and buttons are optional peripherals.</p></div></div>
+      <div class="grid-2">
+        <article class="card">
+          <h3>Core hardware</h3>
+          <ul>
+            <li>ESP32-WROOM-32D module on a compatible development carrier with USB/UART.</li>
+            <li>A suitable USB cable and stable USB power from a computer or power adapter.</li>
+            <li>Teacher Android phone/tablet and student Android device(s).</li>
+          </ul>
+          <p>The exact carrier-board model is not identified. Confirm the board marking, USB connector, and header labels before wiring or flashing.</p>
+          <div class="callout"><span class="call-icon">i</span><p><strong>No Uno link is implemented.</strong>The supplied Uno test sketch manages its own display/session data. It does not communicate with the SNTCH firmware; do not make an Uno necessary for class use.</p></div>
+        </article>
+        <figure class="diagram">
+          <svg viewBox="0 0 650 280" role="img" aria-labelledby="boardTitle boardDesc">
+            <title id="boardTitle">Schematic of a WROOM development carrier</title><desc id="boardDesc">A generic ESP32-WROOM development carrier connects by USB power to a laptop and exposes GPIO pins for the optional separate TFT test. This is not a specific board layout.</desc>
+            <rect x="18" y="20" width="614" height="240" rx="16" fill="#F8FBF8"/>
+            <path d="M130 95h390a20 20 0 0 1 20 20v89a20 20 0 0 1-20 20H130a20 20 0 0 1-20-20v-89a20 20 0 0 1 20-20z" fill="#14532D"/>
+            <rect x="62" y="137" width="48" height="38" rx="7" fill="#597966" stroke="#10281D" stroke-width="3"/><text x="86" y="160" fill="#fff" font-size="9" text-anchor="middle">USB</text>
+            <rect x="218" y="115" width="183" height="93" rx="11" fill="#10281D" stroke="#34D399" stroke-width="2"/><text x="309" y="151" fill="#34D399" font-size="17" font-weight="800" text-anchor="middle">ESP32-WROOM-32D</text><text x="309" y="176" fill="#E8F5EC" font-size="11" text-anchor="middle">classic ESP32 module</text>
+            <g fill="#DCECE2"><circle cx="141" cy="111" r="4"/><circle cx="141" cy="133" r="4"/><circle cx="141" cy="155" r="4"/><circle cx="141" cy="177" r="4"/><circle cx="141" cy="199" r="4"/><circle cx="507" cy="111" r="4"/><circle cx="507" cy="133" r="4"/><circle cx="507" cy="155" r="4"/><circle cx="507" cy="177" r="4"/><circle cx="507" cy="199" r="4"/></g>
+            <path d="M39 159H62" stroke="#059669" stroke-width="3"/><text x="50" y="129" fill="#14532D" font-size="11" text-anchor="middle">USB power</text>
+            <path d="M518 114h75v-32" stroke="#059669" stroke-width="2" fill="none"/><text x="595" y="69" fill="#14532D" font-size="11" text-anchor="middle">Optional TFT</text><text x="595" y="84" fill="#587064" font-size="9" text-anchor="middle">separate test sketch</text>
+            <path d="M518 198h75v25" stroke="#059669" stroke-width="2" fill="none"/><text x="587" y="245" fill="#587064" font-size="10" text-anchor="middle">Buttons to GND</text>
+            <text x="325" y="48" fill="#14532D" font-size="13" font-weight="800" text-anchor="middle">GENERIC CARRIER SCHEMATIC · NOT TO SCALE</text>
+          </svg>
+          <figcaption>Illustration shows functional connections only. Use the pin labels on your exact carrier board.</figcaption>
+        </figure>
+      </div>
+      <div class="card" style="margin-top:1rem">
+        <h3>Optional WROOM TFT/button smoke test</h3>
+        <p>This separate sketch checks an ST7735 1.8-inch SPI display and four physical buttons. It does not add a display to the SNTCH classroom firmware or link the display to class sessions.</p>
+        <div class="table-wrap"><table><thead><tr><th>Signal</th><th>WROOM GPIO</th><th>Connection note</th></tr></thead><tbody>
+          <tr><td>TFT SCK / MOSI</td><td><code>18 / 23</code></td><td>SPI clock and display data</td></tr>
+          <tr><td>TFT CS / DC / reset</td><td><code>22 / 21 / 17</code></td><td>Chip select, command/data, reset</td></tr>
+          <tr><td>TFT MISO</td><td>Not connected</td><td>Display-only writes</td></tr>
+          <tr><td>Select / Back / Left / Right</td><td><code>32 / 33 / 25 / 26</code></td><td>Each button connects GPIO to GND; inputs use <code>INPUT_PULLUP</code></td></tr>
+        </tbody></table></div>
+        <div class="callout danger"><span class="call-icon">!</span><p><strong>Check voltage before connecting the display.</strong>ESP32 GPIO is 3.3 V. The exact TFT breakout’s VCC and backlight circuitry are unknown; check its labels/schematic and logic compatibility. Avoid GPIO6–11 (module flash) and GPIO12 (boot strapping) for this map.</p></div>
+        <p class="small">Build this peripheral sketch from <code>firmware/esp32_wroom32d_tft_buttons/</code> with <code>pio run</code>. It is an optional hardware test, separate from <code>firmware/src/main.ino</code>.</p>
+      </div>
+    </section>
+
+    <section id="setup">
+      <div class="section-head"><div class="section-num">03</div><div><h2>First-time firmware setup</h2><p>Build and flash the WROOM target explicitly. Confirm board markings before uploading.</p></div></div>
+      <div class="step-list">
+        <article class="step"><div><h3>Open the firmware project</h3><p>Use a terminal in this repository, then move into <code>firmware/</code>. Install PlatformIO Core and allow it to download the Espressif Arduino framework and toolchain on the first build.</p><pre class="cmd"><code>cd firmware</code></pre></div></article>
+        <article class="step"><div><h3>Build for the WROOM-32D</h3><p>The default environment is <code>esp32wroom32d</code>, board ID <code>esp32dev</code>. Build the application:</p><pre class="cmd"><code>pio run -e esp32wroom32d</code></pre></div></article>
+        <article class="step"><div><h3>Initialize LittleFS only for a confirmed fresh installation</h3><p>For a new device with no classroom files to preserve, make the image and write it once:</p><pre class="cmd"><code>pio run -e esp32wroom32d -t buildfs
+pio run -e esp32wroom32d -t uploadfs</code></pre><p>The image carries a pending first-use marker; on boot, SNTCH writes its initial supported state and commits the installed marker.</p></div></article>
+        <article class="step"><div><h3>Upload the firmware</h3><p>Connect the confirmed WROOM carrier over USB, choose its serial port if prompted, then flash the application:</p><pre class="cmd"><code>pio run -e esp32wroom32d -t upload</code></pre></div></article>
+        <article class="step"><div><h3>Read startup logs</h3><p>Open the serial monitor at the configured 115200 baud:</p><pre class="cmd"><code>pio device monitor -b 115200</code></pre><p>Look for LittleFS mounted, classroom state loaded/initialized, access point up, HTTP API listening, and the final ready message.</p></div></article>
+      </div>
+      <div class="callout danger"><span class="call-icon">!</span><p><strong>Do not run <code>uploadfs</code> as routine troubleshooting.</strong>It replaces the filesystem partition and erases stored classroom files. A mount failure is ambiguous, so firmware never formats automatically. If this board has valuable data, stop at a storage error and preserve/inspect it before considering any filesystem write or full flash erase.</p></div>
+      <div class="callout success"><span class="call-icon">✓</span><p><strong>Existing valid SNTCH state is kept.</strong>Normal application upload does not ask the firmware to format LittleFS. Valid legacy state can receive an initialization marker without changing the classroom state format.</p></div>
+    </section>
+
+    <section id="connect">
+      <div class="section-head"><div class="section-num">04</div><div><h2>Connect the Android app</h2><p>Join the controller’s network even if Android reports that it has no internet.</p></div></div>
+      <div class="workflow" aria-label="Connectivity checks from Wi-Fi to application">
+        <div class="flow-step"><b>1 · Join Wi-Fi</b><span>SSID <code>SNTCH-EXAM</code><br>Password <code>sntch-1234</code></span></div>
+        <div class="flow-step"><b>2 · Check the address</b><span>Open <code>http://192.168.4.1/</code> on the connected phone.</span></div>
+        <div class="flow-step"><b>3 · Check HTTP API</b><span>Visit <code>/api/health</code> and inspect the JSON response.</span></div>
+        <div class="flow-step"><b>4 · Test in the app</b><span>Use the app’s address field and <b>Test</b> control.</span></div>
+      </div>
+      <div class="grid-2">
+        <article class="card"><h3>Expected health response</h3><pre><code>{
+  "ok": true,
+  "firmware": "0.1.0",
+  "ssid": "SNTCH-EXAM",
+  "ip": "192.168.4.1",
+  "storageError": false
+}</code></pre><p class="small">The real response also includes device name, uptime, connected-state counts, heap, and storage totals.</p></article>
+        <article class="card"><h3>Read the checks separately</h3><ul><li>Seeing the Wi-Fi name means the access point is advertising.</li><li>Joining it means the phone associated with the controller.</li><li>A valid JSON response from <code>/api/health</code> means the phone reached the HTTP listener and health route.</li><li>The app’s Test result checks its own configured address and response parsing.</li></ul><p class="small">A health response does not prove teacher login, student join, answer submission, or results. Test those workflows too.</p></article>
+      </div>
+      <div class="callout"><span class="call-icon">i</span><p><strong>“No internet” is expected.</strong>Android may offer to switch back to mobile data. Stay connected to <code>SNTCH-EXAM</code> while using SNTCH; all app traffic for the classroom goes to the local controller.</p></div>
+    </section>
+
+    <section id="teacher">
+      <div class="section-head"><div class="section-num">05</div><div><h2>Teacher workflow</h2><p>Prepare a roster and item, open a session, then review participation.</p></div></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="ui-schematic" role="img" aria-label="Schematic layout of the teacher app navigation and dashboard, not an actual screenshot">
+            <div class="ui-rail"><b>SNTCH</b><span class="active">Dashboard</span><span>Sessions</span><span>Students</span><span>Activities</span><span>Examinations</span><span>Attendance</span><span>Results</span><span>Settings</span></div>
+            <div class="ui-workspace"><div class="ui-top"><b>Teacher console</b><i>connected · schematic</i></div><div class="ui-tiles"><div class="ui-tile"><b>Students</b><span>roster on controller</span></div><div class="ui-tile"><b>Open sessions</b><span>ready / live / paused</span></div><div class="ui-tile"><b>Submissions</b><span>activities + exams</span></div></div><div class="ui-list"><div class="ui-row"><span>Published item → open session</span><span>Next</span></div><div class="ui-row"><span>Session code → share with students</span><span>Join</span></div><div class="ui-row"><span>Results → review submissions</span><span>Done</span></div></div></div>
+          </div>
+          <p class="small">UI map schematic based on the Android source; it is not an application screenshot.</p>
+        </div>
+        <article class="card">
+          <h3>Run a class</h3>
+          <ol>
+            <li>Connect to <code>SNTCH-EXAM</code>. Open SNTCH, choose <strong>Teacher</strong>, check the controller address, and tap <strong>Test</strong>.</li>
+            <li>Sign in with the teacher PIN configured in the firmware build. The current source default is <code>246810</code>; change it before a real class.</li>
+            <li>Open <strong>Students</strong> and add roster lines as <code>number, name, section</code>. Importing an existing number updates that student.</li>
+            <li>Create an activity or examination, then publish it. Sessions are opened for published items.</li>
+            <li>Open <strong>Sessions</strong>, create a session, choose a duration if shown, and start it. Share the session code with students.</li>
+            <li>Use session details to see participants and submissions; pause, resume, or end the session there.</li>
+            <li>Use <strong>Attendance</strong> to select a section/date and mark present, late, or absent. The phone supplies the date.</li>
+            <li>Use <strong>Results</strong> to open submissions, review activity responses, and view examination scores. Student answer review follows the configured results policy.</li>
+          </ol>
+        </article>
+      </div>
+      <div class="callout"><span class="call-icon">i</span><p><strong>Authentication is local.</strong>The teacher PIN is a firmware build setting. Teacher tokens live in controller memory and expire; after a controller restart, sign in again.</p></div>
+    </section>
+
+    <section id="student">
+      <div class="section-head"><div class="section-num">06</div><div><h2>Student workflow</h2><p>Join the active session, complete open work, and submit once.</p></div></div>
+      <div class="workflow" aria-label="Student sequence from Wi-Fi connection to submission">
+        <div class="flow-step"><b>Connect</b><span>Join the controller Wi-Fi; remain connected without internet.</span></div>
+        <div class="flow-step"><b>Join</b><span>Choose Student, check the session code, enter the student number.</span></div>
+        <div class="flow-step"><b>Participate</b><span>Open available activity or examination from Home.</span></div>
+        <div class="flow-step"><b>Submit</b><span>Send the response; check submission/result status.</span></div>
+      </div>
+      <div class="grid-3">
+        <article class="card"><h3>Activities</h3><p>Write a response in the activity screen and submit it. The app keeps an edited draft locally until it is sent; the documented accepted response length is 10–500 characters.</p></article>
+        <article class="card"><h3>Examinations</h3><p>Start an examination when the session is live. Answers autosave as they change. Review answers before submitting; a timeout or session end may auto-submit the attempt.</p></article>
+        <article class="card"><h3>Results</h3><p>Completed examination results show score and pass/fail. Answer review appears when the teacher’s results policy allows it. Rejoin the same open session if prompted after reconnecting.</p></article>
+      </div>
+      <p class="small">The app polls state while relevant screens are active. If the controller is unreachable, it keeps the last snapshot and shows a reconnect message; new server changes wait until connection returns.</p>
+    </section>
+
+    <section id="storage">
+      <div class="section-head"><div class="section-num">07</div><div><h2>Storage, restart and recovery</h2><p>The controller protects the filesystem by stopping when it cannot trust saved class state.</p></div></div>
+      <div class="card">
+        <div class="storage-flow" aria-label="Local data handling path">
+          <div class="storage-node"><strong>Teacher / student actions</strong><span>roster · sessions · work</span></div><div class="storage-arrow" aria-hidden="true">→</div>
+          <div class="storage-node"><strong>SNTCH core</strong><span>validates and updates state</span></div><div class="storage-arrow" aria-hidden="true">→</div>
+          <div class="storage-node"><strong>LittleFS</strong><span><code>state.json</code>, <code>/sub</code>, <code>/att</code></span></div>
+        </div>
+        <div class="grid-2" style="margin-top:1rem">
+          <div><h3>What survives</h3><p>Supported classroom state, roster, sessions, attendance, activities/exams, submissions, and saved exam work are stored locally. On restart, a live session is restored as paused. Authentication tokens are RAM-only, so teacher sign-in and student rejoin may be needed.</p></div>
+          <div><h3>How startup decides</h3><p>A pending marker in an explicitly uploaded fresh filesystem allows first state creation. An installed marker with a missing state is treated as data loss and blocks startup. Valid old SNTCH state without a marker can be adopted in place. A malformed or unsupported state is preserved and rejected.</p></div>
+        </div>
+        <div class="callout danger"><span class="call-icon">!</span><p><strong>Storage error? Stop before writing a filesystem image.</strong>Do not use <code>uploadfs</code>, formatting, or chip erase to “try a fix.” These can replace saved class files. Record serial logs, keep power stable, and back up or inspect the device using a data-preserving method before recovery.</p></div>
+      </div>
+    </section>
+
+    <section id="troubleshoot">
+      <div class="section-head"><div class="section-num">08</div><div><h2>Troubleshooting</h2><p>Use checks that preserve stored data first.</p></div></div>
+      <div class="table-scroll"><div class="table-wrap"><table class="trouble"><thead><tr><th>Symptom</th><th>Safe checks</th><th>Next step</th></tr></thead><tbody>
+        <tr><td>Wi-Fi name does not appear</td><td>Confirm the WROOM carrier is powered; read serial at 115200 for AP startup errors. Verify the board is the classic ESP32 target.</td><td>Try a known data-capable USB cable and stable power. Rebuild/upload <code>esp32wroom32d</code> only after confirming the carrier.</td></tr>
+        <tr><td>Phone cannot stay connected</td><td>Choose “stay connected” to the no-internet network. Check SSID and password, and move closer to the controller.</td><td>Reconnect manually in Android Wi-Fi settings; SNTCH does not auto-join networks.</td></tr>
+        <tr><td><code>/api/health</code> will not respond</td><td>Confirm phone is on SNTCH Wi-Fi, URL is <code>http://192.168.4.1/api/health</code>, and serial shows “HTTP API listening”.</td><td>If AP is up but listener is not, save the log and restart once. Do not erase flash.</td></tr>
+        <tr><td>Health works, app cannot connect</td><td>Use the app address <code>http://192.168.4.1</code>, tap Test, and check for a reconnect banner. Avoid an extra trailing path.</td><td>Verify the app has network access and is still on the controller Wi-Fi; health alone does not prove every route.</td></tr>
+        <tr><td>Teacher login or request fails</td><td>Confirm the configured teacher PIN and that the controller is ready. Check the app’s displayed error and current session state.</td><td>Use the PIN value compiled into this firmware; change it only through a planned rebuild.</td></tr>
+        <tr><td>Student cannot join or submit</td><td>Check the session code, student number/roster, section target, and whether the teacher started or paused/ended the session.</td><td>Ask the teacher to verify session status. Rejoin after Wi-Fi returns; drafts are retained locally by the app.</td></tr>
+        <tr><td>Saved classroom state will not load</td><td>Photograph/copy serial error text and stop repeated uploads. Keep the controller powered and do not run <code>uploadfs</code> or erase.</td><td>Preserve existing flash data and ask for data-safe recovery help. Formatting is not a diagnostic step.</td></tr>
+        <tr><td>TFT is blank</td><td>This tests the separate WROOM peripheral sketch only. Verify display orientation/tab option, SPI wiring, GND, VCC, backlight, and exact breakout requirements.</td><td>Recheck GPIO 18/23/22/21/17 and display voltage compatibility before reconnecting power.</td></tr>
+        <tr><td>Buttons do not respond</td><td>Check each switch goes from GPIO to GND, correct pin map 32/33/25/26, and inputs use pull-ups.</td><td>Try one button at a time with the peripheral test loaded; do not wire a 5 V signal into ESP32 GPIO.</td></tr>
+        <tr><td>Firmware upload fails</td><td>Confirm carrier board and serial port, close serial monitor, use USB data cable, and select environment <code>esp32wroom32d</code>.</td><td>Retry a normal application upload. Avoid full-chip erase; inspect boot/reset guidance for the confirmed carrier.</td></tr>
+      </tbody></table></div></div>
+    </section>
+
+    <section id="verification">
+      <div class="section-head"><div class="section-num">09</div><div><h2>What is verified</h2><p>Software checks and physical classroom checks are different kinds of evidence.</p></div></div>
+      <div class="status-grid">
+        <div class="status-card"><b>Firmware build</b><span>PlatformIO WROOM-32D target builds for <code>esp32dev</code>; a successful build does not verify a board.</span></div>
+        <div class="status-card"><b>Portable + HTTP tests</b><span>Native core tests and host HTTP/restart integration tests exercise the shared logic over simulated storage/network transport.</span></div>
+        <div class="status-card"><b>Android JVM tests</b><span>App data/API behavior is tested against a loopback HTTP server; this is not Android-to-ESP32 hardware testing.</span></div>
+        <div class="status-card"><b>Physical verification</b><span>No claim is made here that the board was flashed, the TFT wired, or a full phone-to-controller class workflow completed.</span></div>
+      </div>
+      <div class="callout"><span class="call-icon">i</span><p><strong>Before a real class:</strong> confirm the carrier/module marking, upload the WROOM target, inspect serial logs, connect two Android devices, test health, teacher sign-in, student join, submission/results, and restart recovery.</p></div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner"><div><strong>SNTCH · ESP32-WROOM-32D guide</strong><br><span class="small" style="color:#BBD5C6">Local-first classroom tools · guide works offline</span></div><div class="foot-links"><a href="SNTCH_USER_GUIDE.md">Markdown version</a><a href="../README.md">Project README</a><a href="FIRMWARE.md">Firmware notes</a><a href="TESTING.md">Testing checklist</a></div></div>
+  </footer>
+</body>
+</html>

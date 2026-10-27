@@ -8,12 +8,12 @@ cd "$ROOT"
 
 # MSYS2's cc1plus needs its DLL directory on PATH; without this g++ fails with
 # exit 127 and no diagnostic.
-export PATH="/c/msys64/mingw64/bin:$PATH"
+export PATH="/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH"
 
 mkdir -p .build
 
 echo "== core tests =="
-g++ -std=c++11 -Wall -Wextra -I firmware/lib/sntch_core/include \
+g++ -std=c++11 -Wall -Wextra -I firmware/include -I firmware/lib/sntch_core/include \
   firmware/test/core_tests.cpp firmware/lib/sntch_core/src/*.cpp \
   -o .build/core_tests.exe
 ./.build/core_tests.exe

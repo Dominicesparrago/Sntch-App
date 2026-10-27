@@ -7,6 +7,14 @@
 
 namespace sntch_fw {
 
+// Arduino WebServer::begin() returns void. Its NetworkServer member is
+// protected and exposes operator bool() for the actual bind/listen state.
+class ListeningWebServer : public WebServer {
+ public:
+  explicit ListeningWebServer(uint16_t port) : WebServer(port) {}
+  bool isListening() { return static_cast<bool>(_server); }
+};
+
 // Bridges the Arduino WebServer to the transport-neutral core Api. No protocol
 // logic lives here; this only converts HTTP into Request and back.
 class ApiServer {
@@ -20,7 +28,9 @@ class ApiServer {
   void dispatch();
   sntch::Api* api_;
   sntch::Classroom* classroom_;
-  WebServer server_;
+  ListeningWebServer server_;
+  bool routesRegistered_ = false;
+  bool listening_ = false;
 };
 
 }  // namespace sntch_fw

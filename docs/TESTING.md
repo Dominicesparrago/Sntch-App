@@ -6,10 +6,12 @@ Everything below was run in this environment. Nothing here is a projection.
 
 | Suite | Command | Result |
 |---|---|---|
-| Core + API (native) | `bash tools/native_build.sh` | **222 checks, 0 failures** |
+| Core + API (native) | `bash tools/native_build.sh` | **284 checks, 0 failures** |
 | HTTP end-to-end incl. restart | same script (or `python tools/e2e_test.py`) | **79 checks, 0 failures** |
 | Android JVM (models, transport, repositories) | `bash tools/android_build.sh` | **33 tests, 0 failures** |
-| Firmware build | `pio run -e esp32s3` | **SUCCESS**, RAM 46,928 / 327,680 B (14.3%), flash 1,275,416 / 3,145,728 B (40.5%) |
+| Firmware build, ESP32-WROOM-32D | `pio run -e esp32wroom32d` | **SUCCESS**, RAM 48,184 / 327,680 B (14.7%), flash 1,337,288 / 3,145,728 B (42.5%) |
+| WROOM LittleFS image | `pio run -e esp32wroom32d -t buildfs` | **SUCCESS**, image includes pending first-use marker |
+| WROOM TFT/button harness | `cd firmware/esp32_wroom32d_tft_buttons && pio run` | **SUCCESS**, RAM 22,388 / 327,680 B (6.8%), flash 324,036 / 1,310,720 B (24.7%) |
 | Android APK build | `./gradlew :app:assembleDebug` | **SUCCESS**, `app-debug.apk` (~9.1 MB) |
 
 ### Environment notes
@@ -21,7 +23,7 @@ Everything below was run in this environment. Nothing here is a projection.
 
 ## 2. What the native suite covers
 
-`firmware/test/core_tests.cpp` (222 checks):
+`firmware/test/core_tests.cpp` (284 checks):
 
 - JSON: round-trip, unicode escapes, malformed input, trailing data, depth limit.
 - Roster: validation, upsert by student number, 50-student capacity.
@@ -41,7 +43,9 @@ Everything below was run in this environment. Nothing here is a projection.
 - Timeout and session end: auto-submission from autosaved answers, `timeout: true`, score correct.
 - Persistence: restart restores roster/sessions/submissions, `live` downgrades to `paused`,
   tokens do not survive, autosaved answers survive and grade after rejoin.
-- Storage: full disk produces `STORAGE_FULL` instead of silent loss.
+- Storage: full disk produces `STORAGE_FULL`; explicit first-use marker setup, installed-marker
+  missing-state detection, unmarked filesystems, malformed/unsupported state, and interrupted
+  initialization recovery.
 - API: auth failures, 413 oversized body, 404 unknown route, per-IP rate limiting, full teacher →
   student workflow through the router, submission detail (prompts present, keys absent).
 
@@ -92,34 +96,48 @@ restarts it against the same data directory, and continues (79 checks):
 
 | Item | Why | How to verify |
 |---|---|---|
-| Firmware on a physical ESP32-S3 | no board attached | flash with `pio run -t upload`, follow §6 |
+| Firmware on ESP32 hardware | no physical runtime test | flash the explicit matching environment, follow §6 |
 | AP association and real Wi-Fi latency | no hardware | associate phones, watch `/api/health` and serial |
 | UI rendering / gestures / on-device timing | no phone or usable emulator (only a TV AVD exists, not booted) | install the APK, run §7 |
 | TLS / hostile-network security | not implemented | see security limitations in ARCHITECTURE.md |
 | Long-term flash wear | needs days of runtime | monitor `storageUsed` and failures over a term |
 | 40–50 simultaneous clients | the AP caps at 10 stations; claim avoided | run a rotation of ≤8 phones |
 
-## 6. Manual hardware checklist (ESP32-S3)
+## 6. Manual hardware checklist (ESP32-WROOM-32D)
 
-1. `cd firmware && pio run -e esp32s3 -t upload`, then open the monitor.
-2. Expect the boot banner, LittleFS mount, `/state.json` load (empty on first boot), AP line and
-   `ready`. No crash loop.
-3. Join `SNTCH-CLASS` from a laptop; open `http://192.168.4.1/api/health`. Expect
+1. Read the module marking and confirm `ESP32-WROOM-32D`; check the carrier board exposes the
+   `esp32dev` USB/UART and GPIOs. Do not flash the S3 environment to this board.
+2. If this is a confirmed new device with no classroom data to keep, run
+   `pio run -e esp32wroom32d -t uploadfs` once to write the pending first-use marker. This replaces
+   the LittleFS partition. For an existing installation, skip this step.
+3. From `firmware/`, run `pio run -e esp32wroom32d -t upload`; do not use a full-chip erase.
+4. Open `pio device monitor -b 115200`. Expect boot, LittleFS mount, saved-state load, AP line,
+   HTTP listener, then `ready`; no crash loop.
+5. Join `SNTCH-EXAM` from a phone; open `http://192.168.4.1/api/health`. Expect
    `"ok":true`, `"storageError":false`, plausible `freeHeap`.
-4. Sign in: `POST /api/teacher/login` with the configured PIN. Import two students, create and
+6. Sign in: `POST /api/teacher/login` with the configured PIN. Import two students, create and
    publish an activity, create a session, start it.
-5. Join from the student app, submit a response; confirm it appears in teacher Results.
-6. Run an exam for 2 minutes; pause, resume, end. Confirm timeout auto-submission if you let the
+7. Join from the student app, submit a response; confirm it appears in teacher Results.
+8. Run an exam for 2 minutes; pause, resume, end. Confirm timeout auto-submission if you let the
    clock run out.
-7. Remove power mid-exam and restore it. Expect the session `paused`, the exam answer draft
+9. Remove power mid-exam and restore it. Expect the session `paused`, the exam answer draft
    restored, and the teacher able to resume without duplicate submissions.
-8. Watch the 30 s diagnostics line for heap stability (no steady decline) during a 10-minute
+10. Watch the 30 s diagnostics line for heap stability (no steady decline) during a 10-minute
    session.
+
+### Optional WROOM TFT/button smoke test
+
+1. Confirm the TFT breakout's VCC/backlight requirements and 3.3 V logic compatibility before
+   connecting it. The supplied sketch does not control a buzzer or backlight.
+2. From `firmware/esp32_wroom32d_tft_buttons/`, run `pio run -t upload` and open serial at
+   115200 baud.
+3. Confirm the menu appears; test Select, Back, Left, and Right. This is a peripheral test only,
+   not SNTCH API/session integration.
 
 ## 7. Manual Android checklist
 
 1. `adb install -r android/app/build/outputs/apk/debug/app-debug.apk`.
-2. Connect the phone to `SNTCH-CLASS` (or to the simulator's LAN address).
+2. Connect the phone to `SNTCH-EXAM` (or to the simulator's LAN address).
 3. Role gate → Test → teacher sign-in → roster import → publish → session → start.
 4. On a second phone (or after switching roles) join with the code, answer, submit.
 5. Put the phone in airplane mode mid-exam, type answers, re-enable Wi-Fi, confirm the draft is
@@ -135,7 +153,9 @@ restarts it against the same data directory, and continues (79 checks):
 bash tools/native_build.sh
 
 # firmware image
-cd firmware && pio run -e esp32s3
+cd firmware && pio run -e esp32wroom32d
+cd firmware && pio run -e esp32wroom32d -t buildfs
+cd firmware/esp32_wroom32d_tft_buttons && pio run
 
 # Android tests and APK
 bash tools/android_build.sh

@@ -24,15 +24,30 @@ ApiServer::ApiServer(sntch::Api* api, sntch::Classroom* classroom)
     : api_(api), classroom_(classroom), server_(SNTCH_HTTP_PORT) {}
 
 bool ApiServer::begin() {
-  static const char* kHeaders[] = {"Authorization"};
-  server_.collectHeaders(kHeaders, 1);
-  server_.on("/", HTTP_GET, [this]() {
-    server_.send(200, "text/plain",
-                 String("SNTCH controller ") + SNTCH_FIRMWARE_VERSION +
-                     "\nUse the SNTCH Android app on this network.\n/api/health reports status.\n");
-  });
-  server_.onNotFound([this]() { dispatch(); });
+  if (listening_) return true;
+  if (!api_ || !classroom_) return false;
+
+  if (!routesRegistered_) {
+    static const char* kHeaders[] = {"Authorization"};
+    server_.collectHeaders(kHeaders, 1);
+    server_.on("/", HTTP_GET, [this]() {
+      server_.send(200, "text/plain",
+                   String("SNTCH controller ") + SNTCH_FIRMWARE_VERSION +
+                       "\nUse the SNTCH Android app on this network.\n/api/health reports status.\n");
+    });
+    server_.onNotFound([this]() { dispatch(); });
+    routesRegistered_ = true;
+  }
+
+  // WebServer::begin() returns void; inspect the underlying listener state.
   server_.begin();
+  listening_ = server_.isListening();
+  if (!listening_) {
+    server_.stop();
+    Serial.printf("[sntch] HTTP API listener failed on port %u\n", SNTCH_HTTP_PORT);
+    return false;
+  }
+
   Serial.printf("[sntch] HTTP API listening on %u\n", SNTCH_HTTP_PORT);
   return true;
 }

@@ -10,6 +10,7 @@ namespace sntch_fw {
 class AccessPoint {
  public:
   bool begin();
+  bool isRunning() const;
   int clientCount() const;
   String ssid() const { return ssid_; }
   String ip() const;

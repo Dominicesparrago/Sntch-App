@@ -4,8 +4,8 @@
 
 ```
             ┌────────────────────────────┐
-            │        ESP32-S3            │
-            │  SNTCH-CLASS access point  │
+            │   ESP32 (S3 or WROOM-32D) │
+            │  SNTCH-EXAM access point   │
             │  192.168.4.1 : 80          │
             │                            │
             │  sntch_core                │
@@ -44,7 +44,7 @@ tested on a PC without a second implementation drifting from the firmware.
 ### Firmware module boundaries
 
 ```
-src/main.cpp             boot order, loop, checkpoint cadence, diagnostics
+src/main.ino             boot order, loop, checkpoint cadence, diagnostics
 src/access_point.*       WPA2 AP, max clients, IP/hostname
 src/api_server.*         HTTP <-> core adapter; no protocol logic
 src/littlefs_storage.*   atomic file writes, directory bootstrap
@@ -61,19 +61,21 @@ lib/sntch_core/api.*     routes, auth, rate limit, envelopes
    would save bytes but add custom framing, reconnection logic and untestable surface. Requests
    are small and capped at 16 KiB.
 2. **Polling instead of push.** Each client polls one endpoint every 3 s. At 10 associated
-   stations that is ~7 requests/second worst case — comfortably inside the ESP32-S3's ability —
+   stations that is ~7 requests/second worst case — within the supported ESP32 targets —
    and polling has no server-side per-client state to leak when a phone disappears.
 3. **Server-side exam clock.** Remaining time is owned by the controller and decremented only
    while a session is `live`. A student force-closing the app cannot gain time. Answers are
    autosaved after each change, so a timeout or an ended session can be graded from the last
    saved answer set.
-4. **Monotonic uptime, no wall clock.** The ESP32-S3 has no RTC and no internet. Session expiry
+4. **Monotonic uptime, no wall clock.** The controller has no battery-backed wall clock or
+   internet. Session expiry
    is duration-based; attempt clocks are stopwatches. Attendance dates come from the teacher
    app's clock as plain `YYYY-MM-DD` strings. Absolute "opens at / due at" fields from the
    prototype were deliberately dropped rather than faked.
 5. **RAM index, flash bodies.** Session snapshots stay small: submissions and in-progress
    answer sets live in `/sub/` and `/att/` files, and the in-RAM record holds only the summary.
-   That keeps a 50-student roster within the ESP32-S3 heap (build uses 14% of 320 KB).
+   That keeps a 50-student roster within the available ESP32 heap (the S3 build uses 14% of
+   320 KB).
 6. **Idempotency before gating.** Submitting twice returns the first submission with
    `"duplicate": true` and HTTP 200, even if the attempt was lost or the session has since
    ended. Retrying after a dropped response can never create a second record.
@@ -104,7 +106,7 @@ lib/sntch_core/api.*     routes, auth, rate limit, envelopes
 The data model bounds are in `classroom.hpp`: 50 students, 16 activities, 8 exams × 20 questions,
 12 sessions (4 open), 400 submissions, 14 attendance days, 24 tokens, 50 concurrent attempts.
 
-The **real** hardware ceiling is lower: the ESP32-S3 access point associates at most 10 stations
+The **real** hardware ceiling is lower: the configured ESP32 access point allows at most 10 stations
 (`SNTCH_AP_MAX_CLIENTS`). A 40–50 student room therefore cannot be one controller AP. Practical
 options, in order of cost:
 
