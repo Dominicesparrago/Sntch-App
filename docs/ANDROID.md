@@ -27,7 +27,7 @@ export JAVA_HOME="C:/Program Files/Java/jdk-25"
 
 ```bash
 cd android
-./gradlew :app:testDebugUnitTest     # 33 JVM tests
+./gradlew :app:testDebugUnitTest     # 37 JVM tests
 ./gradlew :app:assembleDebug         # app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
@@ -45,8 +45,8 @@ location or Wi-Fi control permissions and does not silently switch networks.
 data/
   SntchApi.kt        transport, error envelope → ApiException, unreachable → NetworkException
   Models.kt          wire models + parsing (tolerant of absent optional fields)
-  Repositories.kt    LocalStore (SharedPreferences), TeacherRepository, StudentRepository,
-                     probeController (health check)
+  Repositories.kt    LocalStore (SharedPreferences + local deletion backups), TeacherRepository,
+                     StudentRepository, probeController (health check)
 ui/
   Theme.kt           Forest Tech colors/typography from the HTML prototype
   Components.kt      cards, badges, buttons, fields, dialogs, status tones, date/clock helpers
@@ -69,9 +69,13 @@ repository, the repository calls `SntchApi`.
 4. Sessions → New session → choose the published item and duration → start.
 5. Session detail shows the code, join instructions, live participants, submissions and scores;
    pause/resume/end are here.
-6. Attendance → pick section and date → mark present/late/absent or mark all present.
-7. Results → open a submission to read the response or answer sheet and mark activities reviewed.
-8. Device & settings → address, show-correct policy, device diagnostics, sign out.
+6. Delete a `ready`/`ended`/`expired` session from the list or detail screen. The phone downloads
+   the controller backup to `filesDir/session-backups/<id>.json`, verifies the write, and only then
+   ACKs the controller. A failed local save keeps the session queued with a Retry action; Cancel
+   restores the session on the controller. The local copy is kept after ACK as the user's backup.
+7. Attendance → pick section and date → mark present/late/absent or mark all present.
+8. Results → open a submission to read the response or answer sheet and mark activities reviewed.
+9. Device & settings → address, show-correct policy, device diagnostics, sign out.
 
 **Student**
 
@@ -92,6 +96,9 @@ repository, the repository calls `SntchApi`.
 - A 401 clears the stored token: the teacher returns to the PIN screen, the student returns to
   Join. Re-joining the same open session is idempotent.
 - Submission is idempotent on the controller, so retrying after a lost response is safe.
+- Deletion is backup-first: the repository refuses to ACK unless the backup file was written and
+  read back successfully. Pending deletions are restored from the controller on reconnect, so the
+  Retry action survives an app restart.
 
 ## 6. UI/design mapping (prototype → app)
 
@@ -118,7 +125,7 @@ offline.
 - CSV import/export UI
 - Teacher directory / multiple teachers
 - Dark-mode-specific badge palette (dark theme itself follows the system)
-- Deleting students, activities or submissions (no destructive endpoints in V1)
+- Deleting students, activities or submissions (only sessions have a delete endpoint in V1)
 - Two attempts per examination
 
 ## 8. Verification scope

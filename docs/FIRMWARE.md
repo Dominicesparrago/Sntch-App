@@ -18,13 +18,13 @@ app partition.
 Builds verified on this machine with PlatformIO Core 6.2.0:
 
 ```
-WROOM-32D: RAM 48,184 / 327,680 bytes (14.7%); flash 1,337,288 / 3,145,728 bytes (42.5%)
+WROOM-32D: RAM 48,200 / 327,680 bytes (14.7%); flash 1,384,028 / 3,145,728 bytes (44.0%)
 ```
 
 No wiring is required for the core V1 controller beyond USB power. A TFT and Arduino Uno are not
-required for classroom operation. If you attach a display, ESP32 GPIO signals are 3.3 V. Check the
-exact TFT breakout's VCC and backlight requirements; do not infer its supply voltage from the
-ST7735 controller name.
+required for classroom operation. The optional Uno link is described below. If you attach a TFT
+directly to the ESP32, its GPIO signals are 3.3 V; check the exact breakout's VCC and backlight
+requirements, and do not infer its supply voltage from the ST7735 controller name.
 
 ## 2. Build, flash, monitor
 
@@ -69,6 +69,11 @@ All settings are build flags, overridable without editing code:
 | `SNTCH_HTTP_PORT` | `80` | plain HTTP |
 | `SNTCH_SAVE_INTERVAL_MS` | `60000` | checkpoint while an exam is running |
 | `SNTCH_DIAG_INTERVAL_MS` | `30000` | serial diagnostics cadence |
+| `SNTCH_UNO_STATUS` | `1` | transmit read-only status frames on UART2; `0` removes the code |
+| `SNTCH_UNO_BAUD` | `9600` | status-link baud, 8N1 |
+| `SNTCH_UNO_TX_PIN` | `17` | UART2 TX; wire through a level shifter to the Uno RX |
+| `SNTCH_UNO_RX_PIN` | `16` | reserved; leave the Uno TX disconnected (link is one-way) |
+| `SNTCH_UNO_STATUS_INTERVAL_MS` | `2000` | status frame cadence |
 
 Example per-class build:
 
@@ -82,10 +87,41 @@ pio run -e esp32wroom32d \
 (The `-D` flags are passed through PlatformIO's build flags; alternatively add them to
 `build_flags` in `platformio.ini`.)
 
+### Optional Uno status link
+
+The Uno reference sketch can act as a read-only wall display. The ESP32 transmits one line every
+two seconds on UART2 (GPIO17 TX, 9600 8N1); it never reads commands back. The line is ASCII, not
+JSON, so the nearly full Uno flash does not need a JSON parser:
+
+```
+SNT1,<students>,<open>,<live>,<paused>,<submissions>,<pending>,<state>,<code>,<joined>*<XOR>\n
+```
+
+`<state>` is `none` when no session is open, otherwise `live`, `paused`, `ready`, `ended`, or
+`expired`. `<code>` is `-----` when there is no session. `<XOR>` is two uppercase hex digits: the
+XOR of every byte before `*`. The Uno ignores frames with a bad checksum and shows `UART: waiting`
+after six seconds without a valid frame.
+
+Wiring is one-way and crosses voltage domains:
+
+| Signal | Connection |
+|---|---|
+| ESP32 GPIO17 (3.3 V TX) | level-shifter 3.3 V side input |
+| Level-shifter 5 V side output | Uno D0 (RX) |
+| GND | common ground |
+| Uno TX (D1) | leave disconnected |
+
+Use a 3.3 V-to-5 V level shifter (for example a TXS0108E or a resistor divider suitable for
+9600 baud). The Uno is 5 V and must not receive a bare 3.3 V signal as a reliable high; do not feed
+5 V into the ESP32. Disconnect the ESP32 TX jumper while uploading a sketch over USB, because the
+USB-UART and the ESP32 both drive Uno D0. The Uno's `Sync` menu item opens the status screen.
+
+
 ## 4. Boot and runtime behaviour
 
 1. Serial banner with firmware version.
-2. LittleFS mount without formatting; `/sub` and `/att` are created if missing.
+2. LittleFS mount without formatting; `/sub` and `/att` are created if missing (`/del` is created
+   on the first deletion backup).
 3. Classroom state loaded from `/state.json`. A pending marker from an explicitly uploaded fresh
    filesystem authorizes creation of the initial state. A zero-byte,
    malformed, unknown-version, or structurally incomplete state file stops startup without rewriting it.
@@ -94,8 +130,9 @@ pio run -e esp32wroom32d \
    firmware reports an error and retries every 5 seconds; it does not print `ready` early.
 5. HTTP API started on port 80. Root `/` returns a short plain-text status.
 6. Loop: serve HTTP, advance exam clocks, checkpoint every 60 s while an exam is in progress,
-   print diagnostics every 30 s (uptime, heap, associated clients, students, open sessions,
-   submissions, storage use). Tokens, PINs and answer text never appear in logs.
+   send the Uno status frame every 2 s when enabled, and print diagnostics every 30 s (uptime,
+   heap, associated clients, students, open sessions, submissions, storage use). Tokens, PINs
+   and answer text never appear in logs.
 
 Expected volume: one boot block, one line every 30 s. Adjust `SNTCH_DIAG_INTERVAL_MS` if a serial
 capture is noisy.
@@ -107,6 +144,8 @@ capture is noisy.
 - In-progress attempts are restored with their last checkpointed remaining time.
 - Submissions already written to flash survive and keep their idempotency keys, so retries after
   a restart return the original grade.
+- Pending deletions and their `/del/<sessionId>.json` backups survive, and the session stays hidden
+  from students until the teacher app ACKs or cancels.
 - Teacher and student tokens are RAM-only: the teacher signs in again, students re-join.
 
 ### Storage failure modes
@@ -116,6 +155,7 @@ capture is noisy.
 | `/state.json` corrupt/incompatible | service does not start; serial log identifies the state load failure; file is preserved |
 | LittleFS mount fails | service does not start; firmware does not format the partition |
 | Disk full mid-submission | submission file write fails → `500 STORAGE_FULL`, no partial summary recorded |
+| Disk full during delete backup | `/del/` write fails → `500 STORAGE_FULL`, the session is not queued |
 | Power loss during write | `*.tmp` + rename keeps the previous file intact |
 
 ## 5. Capacity: the honest number

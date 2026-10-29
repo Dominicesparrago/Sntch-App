@@ -124,6 +124,78 @@ class RepositoryTest {
     }
 
     @Test
+    fun `delete downloads and saves the backup before acknowledging`() = runBlocking {
+        store.teacherToken = "t"
+        controller.route(
+            "/api/teacher/sessions/7/delete",
+            body = """{"ok":true,"sessionId":7,"previousState":"ended","requestedMs":100,
+                       "code":"SNT-ABCD","title":"Quiz","refType":"exam","refId":11,
+                       "backupPath":"/del/7.json","backupPresent":true,"backupBytes":64}""",
+        )
+        controller.route(
+            "/api/teacher/deletions/7",
+            body = """{"ok":true,"type":"sntch-deletion-backup","session":{"id":7},"participants":[]}""",
+        )
+        controller.route("/api/teacher/deletions/7/ack", body = """{"ok":true,"removed":true}""")
+
+        val pending = teacher().deleteSession(7)
+
+        assertEquals(7, pending.sessionId)
+        assertEquals("SNT-ABCD", pending.code)
+        assertTrue(store.deletionBackups.getValue(7).contains("sntch-deletion-backup"))
+        assertEquals("/api/teacher/deletions/7/ack", controller.lastRequest().path)
+        assertEquals("POST", controller.lastRequest().method)
+        assertTrue(controller.requests.any { it.path == "/api/teacher/deletions/7" && it.method == "GET" })
+    }
+
+    @Test
+    fun `delete does not acknowledge when the local backup cannot be saved`() = runBlocking {
+        store.teacherToken = "t"
+        store.failDeletionBackupSave = true
+        controller.route(
+            "/api/teacher/sessions/7/delete",
+            body = """{"ok":true,"sessionId":7,"previousState":"ended","requestedMs":100}""",
+        )
+        controller.route(
+            "/api/teacher/deletions/7",
+            body = """{"ok":true,"type":"sntch-deletion-backup","session":{"id":7}}""",
+        )
+        try {
+            teacher().deleteSession(7)
+            fail("expected ApiException")
+        } catch (error: ApiException) {
+            assertEquals("BACKUP_NOT_SAVED", error.code)
+        }
+        assertFalse(controller.requests.any { it.path.endsWith("/ack") })
+    }
+
+    @Test
+    fun `pending deletion can be retried or canceled`() = runBlocking {
+        store.teacherToken = "t"
+        controller.route(
+            "/api/teacher/deletions",
+            body = """{"ok":true,"pendingDeletions":[
+                       {"sessionId":7,"previousState":"ended","requestedMs":100,"backupPath":"/del/7.json"}
+                     ]}""",
+        )
+        controller.route(
+            "/api/teacher/deletions/7",
+            body = """{"ok":true,"type":"sntch-deletion-backup","session":{"id":7}}""",
+        )
+        controller.route("/api/teacher/deletions/7/ack", body = """{"ok":true,"removed":true}""")
+        controller.route("/api/teacher/deletions/7/cancel", body = """{"ok":true,"canceled":true}""")
+        val repo = teacher()
+        assertEquals(1, repo.pendingDeletions().size)
+        store.deletionBackups[7] = "previous"
+        repo.finishDeletion(7)
+        assertEquals("/api/teacher/deletions/7/ack", controller.lastRequest().path)
+        assertTrue(store.deletionBackups.getValue(7).contains("sntch-deletion-backup"))
+        repo.cancelDeletion(7)
+        assertEquals("/api/teacher/deletions/7/cancel", controller.lastRequest().path)
+        assertNull(store.deletionBackups[7])
+    }
+
+    @Test
     fun `attendance mark-all includes the section and status`() = runBlocking {
         store.teacherToken = "t"
         controller.route("/api/teacher/attendance", body = """{"ok":true}""")

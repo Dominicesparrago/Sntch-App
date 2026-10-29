@@ -96,6 +96,11 @@ question content.
 | POST | `/api/teacher/sessions/{id}/pause` | – | `live` → `paused` (freezes exam clocks) |
 | POST | `/api/teacher/sessions/{id}/resume` | – | `paused` → `live` |
 | POST | `/api/teacher/sessions/{id}/end` | – | → `ended`; finalizes in-progress attempts as timed-out submissions |
+| POST | `/api/teacher/sessions/{id}/delete` | – | `ready`/`ended`/`expired` only; writes `/del/<id>.json` and queues the session as `pending_delete` |
+| GET | `/api/teacher/deletions` | – | `pendingDeletions`: queued sessions with `backupPath`, `backupPresent`, `backupBytes` |
+| GET | `/api/teacher/deletions/{id}` | – | full backup (`type:"sntch-deletion-backup"`, session, item, participants, submissions) |
+| POST | `/api/teacher/deletions/{id}/ack` | – | deletes the session and its backup after the client saved the backup |
+| POST | `/api/teacher/deletions/{id}/cancel` | – | restores the previous state and removes the backup |
 | POST | `/api/teacher/attendance` | `{"date":"2026-10-25","section":"9-A","studentId":7,"status":"present"}` or `{"date":"…","section":"9-A","markAll":"present"}` | status ∈ `present` \| `late` \| `absent` \| `unmarked` |
 | GET | `/api/teacher/submissions/{id}` | – | full submission including stored answers and the examination's prompts (without answer keys) |
 | POST | `/api/teacher/submissions/{id}/review` | – | activity submission → `reviewed` |
@@ -140,6 +145,16 @@ student answer text lives in `/sub/` files and is only fetched on demand.
    Students have no endpoint that can read another student's data.
 8. **Session codes** are `SNT-` + 4 chars from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (no
    ambiguous 0/O/1/I/L), unique among open sessions.
+9. **Backup before delete.** Deleting a session is a two-step lifecycle. The controller refuses
+   `live`/`paused` sessions (`SESSION_ACTIVE`), sessions with submissions
+   (`SESSION_HAS_SUBMISSIONS`), and sessions with an exam still in progress (`SESSION_IN_USE`).
+   For an allowed session it writes a complete backup to `/del/<id>.json` (max 32 KiB), marks the
+   session `pending_delete`, and only then reports success. A pending session is hidden from
+   students: `sessionPreview` and `join` return `409 SESSION_PENDING_DELETE`, and new submissions
+   are refused. `GET /api/teacher/deletions/{id}` returns the backup; `ack` finalizes the delete
+   and removes the file, while `cancel` restores the prior state. The request, backup path, and
+   pending flag survive a restart; `ack` is idempotent and returns `alreadyFinalized` when the
+   session is already gone.
 
 ## 5. Idempotency and reconnection
 
@@ -162,6 +177,7 @@ student answer text lives in `/sub/` files and is only fetched on demand.
 | `/state.json` | controller | students, activities, exams, sessions, attendance, submission index, id counters |
 | `/sub/<id>.json` | controller | one submission with its answers/text |
 | `/att/<examId>-<studentId>.json` | controller | autosaved in-progress exam answers |
+| `/del/<id>.json` | controller | deletion backup, present only while the session is `pending_delete` |
 
 Writes are staged to `*.tmp`, flushed, then renamed, so a power cut leaves either the old or
 the new file (never a torn one). On boot the controller:
@@ -174,7 +190,9 @@ the new file (never a torn one). On boot the controller:
    the room with a session still accepting work after a brownout),
 3. restores attempts with their persisted `remainingSec`,
 4. keeps every submission already on flash, so re-submitting after a restart returns the
-   original grade.
+   original grade,
+5. restores `pending_deletions` and keeps their `/del/` backups until the client ACKs or cancels;
+   the teacher snapshot reports them in `pendingDeletions`.
 
 Full storage: a failed write returns `INTERNAL` with `STORAGE_FULL`; the controller refuses new
 sessions rather than silently accepting unpersisted work. Diagnostics in `/api/health`

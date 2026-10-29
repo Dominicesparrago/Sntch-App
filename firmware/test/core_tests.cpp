@@ -29,7 +29,6 @@ static std::string show(const T& value) {
   return std::to_string(value);
 }
 static std::string show(const std::string& value) { return value; }
-static std::string show(const char* value) { return value ? std::string(value) : std::string(); }
 
 #define CHECK_EQ(a, b)                                                           \
   do {                                                                           \
@@ -937,6 +936,185 @@ static void testNetworkRecoveryPolicy() {
   CHECK(state.apiReady());  // AP recovery reuses the existing HTTP listener.
 }
 
+static void testStatusLine() {
+  MemoryStorage disk;
+  prepareFreshFilesystem(disk);
+  Classroom room(&disk, kPin);
+  CHECK(room.load());
+  CHECK_EQ(room.statusLine(1000), std::string("SNT1,0,0,0,0,0,0,none,-----,0"));
+
+  addRoster(room, 2);
+  Json activity = body("{\"title\":\"Status\",\"target\":\"9-A\"}");
+  unsigned activityId = 0;
+  CHECK(room.createActivity(activity, activityId).ok);
+  CHECK(room.publishItem("activity", activityId).ok);
+  Json sessionBody = Json::object();
+  sessionBody.set("refType", Json::makeString("activity"));
+  sessionBody.set("refId", Json(static_cast<int>(activityId)));
+  unsigned sessionId = 0;
+  CHECK(room.createSession(sessionBody, 2000, sessionId).ok);
+  std::string code = room.sessions()[0].code;
+
+  std::string line = room.statusLine(2500);
+  CHECK_EQ(line.substr(0, 14), std::string("SNT1,2,1,0,0,0"));
+  CHECK_EQ(line.substr(line.size() - 16), std::string("ready," + code + ",0"));
+
+  CHECK(room.sessionAction(sessionId, "start", 3000).ok);
+  unsigned studentId = 0, joinedSession = 0;
+  std::string token;
+  CHECK(room.join(code, "S-001", 3500, studentId, joinedSession, token).ok);
+  line = room.statusLine(4000);
+  CHECK_EQ(line.substr(0, 14), std::string("SNT1,2,1,1,0,0"));
+  CHECK_EQ(line.substr(line.size() - 15), std::string("live," + code + ",1"));
+}
+
+static void testBackupBeforeDelete() {
+  MemoryStorage disk;
+  prepareFreshFilesystem(disk);
+  Classroom room(&disk, kPin);
+  CHECK(room.load());
+  addRoster(room, 2);
+  Classroom* active = &room;
+
+  auto codeFor = [&active](unsigned id) {
+    for (size_t k = 0; k < active->sessions().size(); ++k)
+      if (active->sessions()[k].id == id) return active->sessions()[k].code;
+    return std::string();
+  };
+  auto stateFor = [&active](unsigned id) {
+    for (size_t k = 0; k < active->sessions().size(); ++k)
+      if (active->sessions()[k].id == id) return active->sessions()[k].state;
+    return std::string("missing");
+  };
+  auto makeActivitySession = [&active](const char* title, Ms now, unsigned& itemId,
+                                       unsigned& sessionId) {
+    Json a = Json::object();
+    a.set("title", Json::makeString(title));
+    a.set("target", Json::makeString("9-A"));
+    CHECK(active->createActivity(a, itemId).ok);
+    CHECK(active->publishItem("activity", itemId).ok);
+    Json sb = Json::object();
+    sb.set("refType", Json::makeString("activity"));
+    sb.set("refId", Json(static_cast<int>(itemId)));
+    CHECK(active->createSession(sb, now, sessionId).ok);
+  };
+
+  unsigned item1 = 0, session1 = 0;
+  makeActivitySession("Delete ready", 1000, item1, session1);
+  std::string code1 = codeFor(session1);
+  Json out;
+  CHECK(room.requestDeletion(session1, 1100, out).ok);
+  CHECK(out.flag("pending", false));
+  CHECK_EQ(stateFor(session1), std::string("pending_delete"));
+  CHECK_EQ(room.pendingDeletions().size(), static_cast<size_t>(1));
+  CHECK_EQ(out.integer("sessionId", 0), static_cast<int>(session1));
+
+  Json preview;
+  Result blocked = room.sessionPreview(code1, 1200, preview);
+  CHECK(!blocked.ok);
+  CHECK_EQ(blocked.code, std::string("SESSION_PENDING_DELETE"));
+  unsigned sid = 0, jsid = 0;
+  std::string token;
+  blocked = room.join(code1, "S-001", 1200, sid, jsid, token);
+  CHECK(!blocked.ok);
+  CHECK_EQ(blocked.code, std::string("SESSION_PENDING_DELETE"));
+  blocked = room.sessionAction(session1, "end", 1200);
+  CHECK(!blocked.ok);
+  CHECK_EQ(blocked.code, std::string("SESSION_PENDING_DELETE"));
+
+  Json backup;
+  CHECK(room.deletionBackup(session1, backup).ok);
+  const Json* backupSession = backup.find("session");
+  const Json* backupItem = backup.find("item");
+  CHECK(backupSession != nullptr);
+  CHECK(backupItem != nullptr);
+  if (backupSession) CHECK_EQ(backupSession->str("state"), std::string("ready"));
+  if (backupItem) CHECK_EQ(backupItem->integer("id", 0), static_cast<int>(item1));
+  const Json* participants = backup.find("participants");
+  CHECK(participants != nullptr);
+  if (participants) CHECK_EQ(participants->items.size(), static_cast<size_t>(0));
+  const std::string backupPath = out.str("backupPath");
+  CHECK(disk.exists(backupPath));
+
+  Classroom restarted(&disk, kPin);
+  CHECK(restarted.load());
+  active = &restarted;
+  CHECK_EQ(restarted.pendingDeletions().size(), static_cast<size_t>(1));
+  for (size_t k = 0; k < restarted.sessions().size(); ++k) {
+    if (restarted.sessions()[k].id == session1)
+      CHECK_EQ(restarted.sessions()[k].state, std::string("pending_delete"));
+  }
+  Json restoredBackup;
+  CHECK(restarted.deletionBackup(session1, restoredBackup).ok);
+  Json ack;
+  CHECK(restarted.acknowledgeDeletion(session1, 1300, ack).ok);
+  CHECK(ack.flag("removed", false));
+  CHECK_EQ(restarted.sessions().size(), static_cast<size_t>(0));
+  CHECK_EQ(restarted.pendingDeletions().size(), static_cast<size_t>(0));
+  CHECK(!disk.exists(backupPath));
+  CHECK(restarted.acknowledgeDeletion(session1, 1400, ack).ok);
+  CHECK(ack.flag("alreadyFinalized", false));
+
+  unsigned item2 = 0, session2 = 0;
+  makeActivitySession("Cancel delete", 2000, item2, session2);
+  std::string code2 = codeFor(session2);
+  CHECK(restarted.requestDeletion(session2, 2100, out).ok);
+  Json canceled;
+  CHECK(restarted.cancelDeletion(session2, 2200, canceled).ok);
+  CHECK(canceled.flag("canceled", false));
+  CHECK_EQ(stateFor(session2), std::string("ready"));
+  CHECK_EQ(restarted.pendingDeletions().size(), static_cast<size_t>(0));
+  CHECK(restarted.sessionPreview(code2, 2300, preview).ok);
+  CHECK(!disk.exists(out.str("backupPath")));
+
+  CHECK(restarted.sessionAction(session2, "start", 2400).ok);
+  Result liveBlock = restarted.requestDeletion(session2, 2500, out);
+  CHECK(!liveBlock.ok);
+  CHECK_EQ(liveBlock.code, std::string("SESSION_ACTIVE"));
+  CHECK(restarted.sessionAction(session2, "pause", 2600).ok);
+  Result pausedBlock = restarted.requestDeletion(session2, 2700, out);
+  CHECK(!pausedBlock.ok);
+  CHECK_EQ(pausedBlock.code, std::string("SESSION_ACTIVE"));
+  CHECK(restarted.sessionAction(session2, "end", 2800).ok);
+  CHECK(restarted.requestDeletion(session2, 2900, out).ok);
+  CHECK(restarted.acknowledgeDeletion(session2, 3000, ack).ok);
+
+  unsigned item3 = 0, session3 = 0;
+  makeActivitySession("Delete ended with participant", 3100, item3, session3);
+  std::string code3 = codeFor(session3);
+  CHECK(restarted.sessionAction(session3, "start", 3200).ok);
+  CHECK(restarted.join(code3, "S-001", 3300, sid, jsid, token).ok);
+  CHECK(restarted.sessionAction(session3, "end", 3400).ok);
+  Json endedOut;
+  CHECK(restarted.requestDeletion(session3, 3500, endedOut).ok);
+  Json endedBackup;
+  CHECK(restarted.deletionBackup(session3, endedBackup).ok);
+  const Json* endedParticipants = endedBackup.find("participants");
+  CHECK(endedParticipants != nullptr);
+  if (endedParticipants) {
+    CHECK_EQ(endedParticipants->items.size(), static_cast<size_t>(1));
+    if (!endedParticipants->items.empty())
+      CHECK_EQ(endedParticipants->items[0].str("number"), std::string("S-001"));
+  }
+  CHECK(restarted.acknowledgeDeletion(session3, 3600, ack).ok);
+
+  unsigned item4 = 0, session4 = 0;
+  makeActivitySession("Delete with submission", 3700, item4, session4);
+  std::string code4 = codeFor(session4);
+  CHECK(restarted.sessionAction(session4, "start", 3800).ok);
+  CHECK(restarted.join(code4, "S-001", 3900, sid, jsid, token).ok);
+  Json submission = Json::object();
+  submission.set("refType", Json::makeString("activity"));
+  submission.set("refId", Json(static_cast<int>(item4)));
+  submission.set("text", Json::makeString("This submission blocks deletion."));
+  Json submitted;
+  CHECK(restarted.submit(sid, submission, 4000, submitted).ok);
+  CHECK(restarted.sessionAction(session4, "end", 4100).ok);
+  Result submissionBlock = restarted.requestDeletion(session4, 4200, out);
+  CHECK(!submissionBlock.ok);
+  CHECK_EQ(submissionBlock.code, std::string("SESSION_HAS_SUBMISSIONS"));
+}
+
 int main() {
   testJson();
   testRosterAndSessions();
@@ -945,6 +1123,8 @@ int main() {
   testExamFlow();
   testTimeoutAndEnd();
   testPersistenceAndRecovery();
+  testStatusLine();
+  testBackupBeforeDelete();
   testInvalidSavedStateIsPreserved();
   testStorageFull();
   testApi();

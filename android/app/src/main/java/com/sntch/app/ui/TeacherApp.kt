@@ -233,6 +233,18 @@ class TeacherController(
         repo.sessionAction(id, action)
     }
 
+    fun deleteSession(id: Int) = act("Session backed up on this device, then deleted.") {
+        repo.deleteSession(id)
+    }
+
+    fun finishDeletion(id: Int) = act("Session backed up on this device, then deleted.") {
+        repo.finishDeletion(id)
+    }
+
+    fun cancelDeletion(id: Int) = act("Deletion canceled. The session is available again.") {
+        repo.cancelDeletion(id)
+    }
+
     fun markAttendance(date: String, section: String, studentId: Int? = null, status: String? = null, markAll: String? = null) {
         act {
             repo.markAttendance(date, section, studentId, status, markAll)
@@ -754,6 +766,7 @@ private fun DashboardScreen(state: TeacherState, controller: TeacherController) 
 @Composable
 private fun SessionsScreen(state: TeacherState, controller: TeacherController) {
     var showCreate by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf<Session?>(null) }
     val open = state.sessions.filter { it.open }
     val past = state.sessions.filter { !it.open }
 
@@ -811,6 +824,12 @@ private fun SessionsScreen(state: TeacherState, controller: TeacherController) {
                         if (session.open) {
                             QuietButton("End", { controller.sessionAction(session.id, "end") })
                         }
+                        if (session.pendingDelete) {
+                            QuietButton("Retry delete", { controller.finishDeletion(session.id) })
+                            QuietButton("Cancel delete", { controller.cancelDeletion(session.id) })
+                        } else if (session.deleteEligible) {
+                            QuietButton("Delete", { confirmDelete = session }, enabled = !controller.busy)
+                        }
                     }
                 }
             }
@@ -819,6 +838,19 @@ private fun SessionsScreen(state: TeacherState, controller: TeacherController) {
 
     if (showCreate) {
         CreateSessionDialog(state, controller) { showCreate = false }
+    }
+
+    confirmDelete?.let { session ->
+        ConfirmDialog(
+            title = "Delete session?",
+            message = "A full backup of \"${session.title}\" will be saved on this device before the controller removes it. Students can no longer join it.",
+            confirmText = "Delete",
+            onConfirm = {
+                confirmDelete = null
+                controller.deleteSession(session.id)
+            },
+            onDismiss = { confirmDelete = null },
+        )
     }
 }
 
@@ -882,6 +914,7 @@ private fun SessionDetailScreen(state: TeacherState, sessionId: Int, controller:
         return
     }
 
+    var confirmDelete by remember { mutableStateOf(false) }
     val roster = state.studentsIn(session.target)
     val subs = state.submissionsFor(session.refType, session.refId)
     val joined = roster.count { session.joined.contains(it.id) }
@@ -927,6 +960,12 @@ private fun SessionDetailScreen(state: TeacherState, sessionId: Int, controller:
             if (session.state == "live") QuietButton("Pause", { controller.sessionAction(session.id, "pause") })
             if (session.state == "paused") QuietButton("Resume", { controller.sessionAction(session.id, "resume") })
             if (session.open) QuietButton("End session", { controller.sessionAction(session.id, "end") })
+            if (session.pendingDelete) {
+                QuietButton("Retry delete", { controller.finishDeletion(session.id) })
+                QuietButton("Cancel delete", { controller.cancelDeletion(session.id) })
+            } else if (session.deleteEligible) {
+                QuietButton("Delete", { confirmDelete = true }, enabled = !controller.busy)
+            }
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -967,6 +1006,19 @@ private fun SessionDetailScreen(state: TeacherState, sessionId: Int, controller:
                 }
             }
         }
+    }
+
+    if (confirmDelete) {
+        ConfirmDialog(
+            title = "Delete session?",
+            message = "A full backup of \"${session.title}\" will be saved on this device before the controller removes it. This session and its participants will disappear from the controller.",
+            confirmText = "Delete",
+            onConfirm = {
+                confirmDelete = false
+                controller.deleteSession(session.id)
+            },
+            onDismiss = { confirmDelete = false },
+        )
     }
 
     controller.detail?.let { detail ->

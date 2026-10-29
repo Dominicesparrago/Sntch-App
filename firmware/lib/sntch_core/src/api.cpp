@@ -195,6 +195,43 @@ Response Api::teacher(const Request& request, const std::vector<std::string>& p)
     return json(200, classroom_->teacherSnapshot(request.nowMs, device_));
   }
 
+  if (p.size() == 3 && p[2] == "deletions") {
+    if (request.method != "GET") return json(405, errorBody("BAD_REQUEST", "Use GET."));
+    Json root = Json::object();
+    root.set("ok", Json(true));
+    root.set("pendingDeletions", classroom_->pendingDeletionsJson());
+    return json(200, root);
+  }
+
+  if (p.size() == 4 && p[2] == "deletions") {
+    unsigned id = 0;
+    if (!toId(p[3], id)) return json(400, errorBody("BAD_REQUEST", "Invalid session id."));
+    if (request.method != "GET") return json(405, errorBody("BAD_REQUEST", "Use GET."));
+    Json backup;
+    Result r = classroom_->deletionBackup(id, backup);
+    if (!r.ok) return errorResponse(r);
+    backup.set("ok", Json(true));
+    backup.set("sessionId", Json(static_cast<int>(id)));
+    return json(200, backup);
+  }
+
+  if (p.size() == 5 && p[2] == "deletions") {
+    unsigned id = 0;
+    if (!toId(p[3], id)) return json(400, errorBody("BAD_REQUEST", "Invalid session id."));
+    if (request.method != "POST") return json(405, errorBody("BAD_REQUEST", "Use POST."));
+    Json out;
+    Result r;
+    if (p[4] == "ack") {
+      r = classroom_->acknowledgeDeletion(id, request.nowMs, out);
+    } else if (p[4] == "cancel") {
+      r = classroom_->cancelDeletion(id, request.nowMs, out);
+    } else {
+      return notFound();
+    }
+    if (!r.ok) return errorResponse(r);
+    return json(200, out);
+  }
+
   if (p.size() == 3 && p[2] == "students") {
     if (request.method != "POST") return json(405, errorBody("BAD_REQUEST", "Use POST."));
     Json body;
@@ -259,6 +296,13 @@ Response Api::teacher(const Request& request, const std::vector<std::string>& p)
   if (p.size() == 5 && p[2] == "sessions") {
     unsigned id = 0;
     if (!toId(p[3], id)) return json(400, errorBody("BAD_REQUEST", "Invalid session id."));
+    if (p[4] == "delete") {
+      if (request.method != "POST") return json(405, errorBody("BAD_REQUEST", "Use POST."));
+      Json out;
+      Result r = classroom_->requestDeletion(id, request.nowMs, out);
+      if (!r.ok) return errorResponse(r);
+      return json(200, out);
+    }
     Result r = classroom_->sessionAction(id, p[4], request.nowMs);
     if (!r.ok) return errorResponse(r);
     Json root = Json::object();

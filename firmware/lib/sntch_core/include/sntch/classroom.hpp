@@ -111,6 +111,14 @@ struct Session {
       : id(0), refId(0), expiresInMin(30), createdMs(0), expiresAtMs(0), startedMs(0), endedMs(0) {}
 };
 
+struct PendingDeletion {
+  unsigned sessionId;
+  std::string previousState;
+  Ms requestedMs;
+
+  PendingDeletion() : sessionId(0), requestedMs(0) {}
+};
+
 struct Submission {
   unsigned id;
   std::string refType;
@@ -179,6 +187,11 @@ class Classroom {
   Result completeItem(const std::string& kind, unsigned id, Ms now);
   Result createSession(const Json& body, Ms now, unsigned& id);
   Result sessionAction(unsigned id, const std::string& action, Ms now);
+  Result requestDeletion(unsigned id, Ms now, Json& out);
+  Result acknowledgeDeletion(unsigned id, Ms now, Json& out);
+  Result cancelDeletion(unsigned id, Ms now, Json& out);
+  Result deletionBackup(unsigned id, Json& out) const;
+  Json pendingDeletionsJson() const;
   Result markAttendance(const Json& body);
   Result reviewSubmission(unsigned id);
   Result setSettings(const Json& body);
@@ -203,11 +216,13 @@ class Classroom {
   size_t submissionCount() const { return submissions_.size(); }
   size_t attemptCount() const { return attempts_.size(); }
   size_t openSessionCount() const;
+  std::string statusLine(Ms now) const;
   const std::vector<Student>& students() const { return students_; }
   const std::vector<Item>& activities() const { return activities_; }
   const std::vector<Item>& exams() const { return exams_; }
   const std::vector<Session>& sessions() const { return sessions_; }
   const std::vector<Submission>& submissions() const { return submissions_; }
+  const std::vector<PendingDeletion>& pendingDeletions() const { return pendingDeletions_; }
   const std::string& lastError() const { return lastError_; }
 
  private:
@@ -220,6 +235,7 @@ class Classroom {
   std::vector<Item> activities_;
   std::vector<Item> exams_;
   std::vector<Session> sessions_;
+  std::vector<PendingDeletion> pendingDeletions_;
   std::vector<Submission> submissions_;
   std::vector<AttendanceDay> attendance_;
   std::vector<Attempt> attempts_;
@@ -249,6 +265,11 @@ class Classroom {
   Session* findSession(unsigned id);
   const Session* findSession(unsigned id) const;
   Session* findSessionByCode(const std::string& code);
+  PendingDeletion* findPendingDeletion(unsigned sessionId);
+  const PendingDeletion* findPendingDeletion(unsigned sessionId) const;
+  bool deletionBackupPath(unsigned sessionId, std::string& path) const;
+  Json deletionBackupJson(const Session& session, const PendingDeletion& pending, Ms now) const;
+  Json deletionSummaryJson(const PendingDeletion& pending) const;
   Submission* findSubmission(unsigned id);
   const Submission* findSubmission(unsigned id) const;
   Submission* findSubmissionFor(unsigned studentId, const std::string& refType, unsigned refId);

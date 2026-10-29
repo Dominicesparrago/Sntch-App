@@ -66,7 +66,7 @@ fun statusTone(status: String): Tone = when (status) {
     "connected", "ok", "ready" -> Tone.OK
     "paused", "late", "pending", "warn", "scheduled", "syncing", "planned" -> Tone.WARN
     "absent", "failed", "fail", "expired", "disconnected", "unavailable", "bad",
-    "storage-error" -> Tone.BAD
+    "storage-error", "pending_delete" -> Tone.BAD
     "draft", "ended", "completed", "unmarked", "waiting", "notjoined", "closed" -> Tone.MUTED
     else -> Tone.INFO
 }
@@ -77,6 +77,7 @@ fun statusLabel(status: String): String = when (status) {
     "paused" -> "Paused"
     "ended" -> "Ended"
     "expired" -> "Expired"
+    "pending_delete" -> "Awaiting backup"
     "active" -> "Active"
     "draft" -> "Draft"
     "completed" -> "Completed"

@@ -12,6 +12,7 @@ const Ms kTeacherTokenTtlMs = 8ULL * 60 * 60 * 1000;
 const Ms kStudentTokenTtlMs = 2ULL * 60 * 60 * 1000;
 const Ms kSessionGraceMs = 10ULL * 60 * 1000;
 const size_t kMaxAnswerBytes = 2048;
+const size_t kMaxDeletionBackupBytes = 32 * 1024;
 const char* const kInitializedMarker = "/sntch_initialized.txt";
 const char* const kInitializedValue = "SNTCH-INITIALIZED-V1";
 const char* const kPendingMarker = "/sntch_pending_init.txt";
@@ -171,6 +172,18 @@ Session* Classroom::findSessionByCode(const std::string& code) {
   return 0;
 }
 
+PendingDeletion* Classroom::findPendingDeletion(unsigned sessionId) {
+  for (size_t k = 0; k < pendingDeletions_.size(); ++k)
+    if (pendingDeletions_[k].sessionId == sessionId) return &pendingDeletions_[k];
+  return 0;
+}
+
+const PendingDeletion* Classroom::findPendingDeletion(unsigned sessionId) const {
+  for (size_t k = 0; k < pendingDeletions_.size(); ++k)
+    if (pendingDeletions_[k].sessionId == sessionId) return &pendingDeletions_[k];
+  return 0;
+}
+
 Submission* Classroom::findSubmission(unsigned id) {
   for (size_t k = 0; k < submissions_.size(); ++k)
     if (submissions_[k].id == id) return &submissions_[k];
@@ -247,6 +260,11 @@ bool Classroom::submissionPath(unsigned id, std::string& path) const {
   return true;
 }
 
+bool Classroom::deletionBackupPath(unsigned sessionId, std::string& path) const {
+  path = "/del/" + formatCode(sessionId) + ".json";
+  return true;
+}
+
 bool Classroom::save() {
   if (!storage_) return false;
   Json root = Json::object();
@@ -297,6 +315,18 @@ bool Classroom::save() {
     sessions.push(o);
   }
   root.set("sessions", sessions);
+
+  if (!pendingDeletions_.empty()) {
+    Json dels = Json::array();
+    for (size_t k = 0; k < pendingDeletions_.size(); ++k) {
+      Json o = Json::object();
+      o.set("sessionId", Json(static_cast<int>(pendingDeletions_[k].sessionId)));
+      o.set("previousState", Json::makeString(pendingDeletions_[k].previousState));
+      o.set("requestedMs", Json(static_cast<double>(pendingDeletions_[k].requestedMs)));
+      dels.push(o);
+    }
+    root.set("pendingDeletions", dels);
+  }
 
   Json subs = Json::array();
   for (size_t k = 0; k < submissions_.size(); ++k) subs.push(submissionJson(submissions_[k]));
@@ -527,6 +557,37 @@ bool Classroom::load() {
     }
   }
 
+  pendingDeletions_.clear();
+  const Json* dels = root.find("pendingDeletions");
+  if (dels && dels->isArray()) {
+    for (size_t k = 0; k < dels->items.size() && pendingDeletions_.size() < limits::kSessions; ++k) {
+      const Json& o = dels->items[k];
+      PendingDeletion p;
+      p.sessionId = static_cast<unsigned>(o.integer("sessionId", 0));
+      p.previousState = o.str("previousState", "ended");
+      p.requestedMs = static_cast<Ms>(o.num("requestedMs", 0));
+      if (!p.sessionId || findPendingDeletion(p.sessionId) || !findSession(p.sessionId)) continue;
+      if (p.previousState.empty() || p.previousState == "pending_delete")
+        p.previousState = "ended";
+      pendingDeletions_.push_back(p);
+    }
+  }
+  // A session that was already marked pending_delete must remain pending even
+  // if older metadata is missing; its backup is the only copy until ACK.
+  for (size_t k = 0; k < sessions_.size(); ++k) {
+    if (sessions_[k].state != "pending_delete") continue;
+    if (findPendingDeletion(sessions_[k].id)) continue;
+    PendingDeletion p;
+    p.sessionId = sessions_[k].id;
+    p.previousState = "ended";
+    p.requestedMs = 0;
+    pendingDeletions_.push_back(p);
+  }
+  for (size_t k = 0; k < pendingDeletions_.size(); ++k) {
+    Session* s = findSession(pendingDeletions_[k].sessionId);
+    if (s) s->state = "pending_delete";
+  }
+
   submissions_.clear();
   const Json* subs = root.find("submissions");
   if (subs && subs->isArray()) {
@@ -661,6 +722,70 @@ Json Classroom::sessionJson(const Session& s, Ms now) const {
   return o;
 }
 
+Json Classroom::deletionSummaryJson(const PendingDeletion& pending) const {
+  Json o = Json::object();
+  o.set("sessionId", Json(static_cast<int>(pending.sessionId)));
+  o.set("previousState", Json::makeString(pending.previousState));
+  o.set("requestedMs", Json(static_cast<double>(pending.requestedMs)));
+  const Session* s = findSession(pending.sessionId);
+  o.set("code", Json::makeString(s ? s->code : ""));
+  o.set("title", Json::makeString(s ? s->title : ""));
+  o.set("refType", Json::makeString(s ? s->refType : ""));
+  o.set("refId", Json(static_cast<int>(s ? s->refId : 0)));
+  std::string path;
+  deletionBackupPath(pending.sessionId, path);
+  o.set("backupPath", Json::makeString(path));
+  o.set("backupPresent", Json(storage_ ? storage_->exists(path) : false));
+  o.set("backupBytes", Json(static_cast<int>(storage_ ? storage_->read(path).size() : 0)));
+  return o;
+}
+
+Json Classroom::deletionBackupJson(const Session& session, const PendingDeletion& pending,
+                                  Ms now) const {
+  Json root = Json::object();
+  root.set("v", Json(1));
+  root.set("type", Json::makeString("sntch-deletion-backup"));
+  root.set("exportedMs", Json(static_cast<double>(now)));
+
+  Json s = Json::object();
+  s.set("id", Json(static_cast<int>(session.id)));
+  s.set("code", Json::makeString(session.code));
+  s.set("refType", Json::makeString(session.refType));
+  s.set("refId", Json(static_cast<int>(session.refId)));
+  s.set("title", Json::makeString(session.title));
+  s.set("target", Json::makeString(session.target));
+  s.set("state", Json::makeString(pending.previousState));
+  s.set("expiresInMin", Json(static_cast<int>(session.expiresInMin)));
+  s.set("createdMs", Json(static_cast<double>(session.createdMs)));
+  s.set("expiresAtMs", Json(static_cast<double>(session.expiresAtMs)));
+  s.set("startedMs", Json(static_cast<double>(session.startedMs)));
+  s.set("endedMs", Json(static_cast<double>(session.endedMs)));
+  s.set("joined", idArray(session.joined));
+  root.set("session", s);
+
+  const Item* item = findItem(session.refType, session.refId);
+  root.set("item", item ? itemJson(*item, true) : Json());
+
+  Json participants = Json::array();
+  for (size_t k = 0; k < session.joined.size(); ++k) {
+    const Student* st = findStudent(session.joined[k]);
+    if (!st) continue;
+    Json o = Json::object();
+    o.set("id", Json(static_cast<int>(st->id)));
+    o.set("number", Json::makeString(st->number));
+    o.set("name", Json::makeString(st->name));
+    o.set("section", Json::makeString(st->section));
+    participants.push(o);
+  }
+  root.set("participants", participants);
+
+  Json subs = Json::array();
+  for (size_t k = 0; k < submissions_.size(); ++k)
+    if (submissions_[k].sessionId == session.id) subs.push(submissionJson(submissions_[k]));
+  root.set("submissions", subs);
+  return root;
+}
+
 Json Classroom::submissionJson(const Submission& s) const {
   Json o = Json::object();
   o.set("id", Json(static_cast<int>(s.id)));
@@ -727,6 +852,11 @@ Json Classroom::teacherSnapshot(Ms now, const DeviceInfo& info) const {
   Json sessions = Json::array();
   for (size_t k = 0; k < sessions_.size(); ++k) sessions.push(sessionJson(sessions_[k], now));
   root.set("sessions", sessions);
+
+  Json pending = Json::array();
+  for (size_t k = 0; k < pendingDeletions_.size(); ++k)
+    pending.push(deletionSummaryJson(pendingDeletions_[k]));
+  root.set("pendingDeletions", pending);
 
   Json subs = Json::array();
   for (size_t k = 0; k < submissions_.size(); ++k) subs.push(submissionJson(submissions_[k]));
@@ -987,6 +1117,8 @@ Result Classroom::sessionAction(unsigned id, const std::string& action, Ms now) 
   Session* s = findSession(id);
   if (!s) return Result::fail(404, "NOT_FOUND", "No such session.");
   std::string state = effectiveState(*s, now);
+  if (state == "pending_delete")
+    return Result::fail(409, "SESSION_PENDING_DELETE", "This session is waiting for backup.");
   Item* item = findItem(s->refType, s->refId);
 
   if (action == "start") {
@@ -1018,6 +1150,181 @@ Result Classroom::sessionAction(unsigned id, const std::string& action, Ms now) 
   }
   if (!save()) return Result::fail(500, "STORAGE_FULL", "Could not save the session.");
   return Result::good();
+}
+
+Result Classroom::requestDeletion(unsigned id, Ms now, Json& out) {
+  Session* s = findSession(id);
+  if (!s) return Result::fail(404, "NOT_FOUND", "No such session.");
+  PendingDeletion* existing = findPendingDeletion(id);
+  if (existing || s->state == "pending_delete") {
+    bool added = false;
+    const std::string priorState = s->state;
+    if (!existing) {
+      PendingDeletion p;
+      p.sessionId = id;
+      p.previousState = "ended";
+      p.requestedMs = now;
+      pendingDeletions_.push_back(p);
+      existing = &pendingDeletions_.back();
+      added = true;
+    }
+    s->state = "pending_delete";
+    if ((added || priorState != "pending_delete") && !save()) {
+      if (added) pendingDeletions_.pop_back();
+      s->state = priorState;
+      return Result::fail(500, "STORAGE_FULL", "Could not save the deletion request.");
+    }
+    out = deletionSummaryJson(*existing);
+    out.set("ok", Json(true));
+    out.set("pending", Json(true));
+    return Result::good();
+  }
+
+  const std::string state = effectiveState(*s, now);
+  if (state == "live" || state == "paused")
+    return Result::fail(409, "SESSION_ACTIVE", "End the session before deleting it.");
+  if (state != "ready" && state != "ended" && state != "expired")
+    return Result::fail(409, "SESSION_NOT_DELETABLE", "This session cannot be deleted.");
+  for (size_t k = 0; k < attempts_.size(); ++k)
+    if (attempts_[k].sessionId == id)
+      return Result::fail(409, "SESSION_IN_USE", "A student still has an examination in progress.");
+  for (size_t k = 0; k < submissions_.size(); ++k)
+    if (submissions_[k].sessionId == id)
+      return Result::fail(409, "SESSION_HAS_SUBMISSIONS",
+                         "A session with submissions cannot be deleted.");
+
+  PendingDeletion pending;
+  pending.sessionId = id;
+  pending.previousState = state;
+  pending.requestedMs = now;
+  const std::string backup = deletionBackupJson(*s, pending, now).dump();
+  if (backup.size() > kMaxDeletionBackupBytes)
+    return Result::fail(413, "BACKUP_TOO_LARGE", "The session backup exceeds 32 KiB.");
+  std::string path;
+  deletionBackupPath(id, path);
+  if (!storage_ || !storage_->writeAtomic(path, backup))
+    return Result::fail(500, "STORAGE_FULL", "Could not write the session backup.");
+
+  s->state = "pending_delete";
+  pendingDeletions_.push_back(pending);
+  logEvent(now, "info", "Session " + s->code + " queued for deletion");
+  if (!save()) {
+    pendingDeletions_.pop_back();
+    s->state = pending.previousState;
+    events_.pop_back();
+    storage_->remove(path);
+    return Result::fail(500, "STORAGE_FULL", "Could not save the deletion request.");
+  }
+
+  out = deletionSummaryJson(pendingDeletions_.back());
+  out.set("ok", Json(true));
+  out.set("pending", Json(true));
+  return Result::good();
+}
+
+Result Classroom::acknowledgeDeletion(unsigned id, Ms now, Json& out) {
+  PendingDeletion* pending = findPendingDeletion(id);
+  if (!pending) {
+    if (!findSession(id)) {
+      out = Json::object();
+      out.set("ok", Json(true));
+      out.set("removed", Json(true));
+      out.set("alreadyFinalized", Json(true));
+      return Result::good();
+    }
+    return Result::fail(404, "NOT_PENDING", "No deletion is pending for this session.");
+  }
+
+  std::vector<Session> sessionsBefore = sessions_;
+  std::vector<PendingDeletion> pendingBefore = pendingDeletions_;
+  std::string path;
+  deletionBackupPath(id, path);
+  for (size_t k = 0; k < sessions_.size();) {
+    if (sessions_[k].id == id)
+      sessions_.erase(sessions_.begin() + static_cast<long>(k));
+    else
+      ++k;
+  }
+  for (size_t k = 0; k < pendingDeletions_.size(); ++k) {
+    if (pendingDeletions_[k].sessionId == id) {
+      pendingDeletions_.erase(pendingDeletions_.begin() + static_cast<long>(k));
+      break;
+    }
+  }
+  logEvent(now, "ok", "Session " + formatCode(id) + " deletion finalized");
+  if (!save()) {
+    sessions_ = sessionsBefore;
+    pendingDeletions_ = pendingBefore;
+    events_.pop_back();
+    return Result::fail(500, "STORAGE_FULL", "Could not finalize the deletion.");
+  }
+  storage_->remove(path);
+  out = Json::object();
+  out.set("ok", Json(true));
+  out.set("removed", Json(true));
+  out.set("sessionId", Json(static_cast<int>(id)));
+  return Result::good();
+}
+
+Result Classroom::cancelDeletion(unsigned id, Ms now, Json& out) {
+  PendingDeletion* pending = findPendingDeletion(id);
+  if (!pending) {
+    out = Json::object();
+    out.set("ok", Json(true));
+    out.set("canceled", Json(false));
+    out.set("sessionId", Json(static_cast<int>(id)));
+    return Result::good();
+  }
+
+  std::vector<Session> sessionsBefore = sessions_;
+  std::vector<PendingDeletion> pendingBefore = pendingDeletions_;
+  std::string path;
+  deletionBackupPath(id, path);
+  Session* s = findSession(id);
+  std::string restored = pending->previousState;
+  if (restored.empty() || restored == "pending_delete") restored = "ended";
+  if (s) s->state = restored;
+  for (size_t k = 0; k < pendingDeletions_.size(); ++k) {
+    if (pendingDeletions_[k].sessionId == id) {
+      pendingDeletions_.erase(pendingDeletions_.begin() + static_cast<long>(k));
+      break;
+    }
+  }
+  logEvent(now, "warn", "Session " + formatCode(id) + " deletion canceled");
+  if (!save()) {
+    sessions_ = sessionsBefore;
+    pendingDeletions_ = pendingBefore;
+    events_.pop_back();
+    return Result::fail(500, "STORAGE_FULL", "Could not cancel the deletion.");
+  }
+  storage_->remove(path);
+  out = Json::object();
+  out.set("ok", Json(true));
+  out.set("canceled", Json(true));
+  out.set("sessionId", Json(static_cast<int>(id)));
+  if (s) out.set("state", Json::makeString(s->state));
+  return Result::good();
+}
+
+Result Classroom::deletionBackup(unsigned id, Json& out) const {
+  if (!findPendingDeletion(id))
+    return Result::fail(404, "NOT_FOUND", "No deletion is pending for this session.");
+  std::string path;
+  deletionBackupPath(id, path);
+  const std::string raw = storage_ ? storage_->read(path) : std::string();
+  if (raw.empty()) return Result::fail(404, "BACKUP_MISSING", "The session backup is missing.");
+  Json parsed;
+  if (!parseJson(raw, parsed, 0) || !parsed.isObject())
+    return Result::fail(500, "BACKUP_CORRUPT", "The session backup is not valid JSON.");
+  out = parsed;
+  return Result::good();
+}
+
+Json Classroom::pendingDeletionsJson() const {
+  Json out = Json::array();
+  for (size_t k = 0; k < pendingDeletions_.size(); ++k)
+    out.push(deletionSummaryJson(pendingDeletions_[k]));
+  return out;
 }
 
 Result Classroom::markAttendance(const Json& body) {
@@ -1145,6 +1452,8 @@ Result Classroom::join(const std::string& code, const std::string& number, Ms no
   Session* s = findSessionByCode(normalized);
   if (!s) return Result::fail(404, "NOT_FOUND", "No session matches this code.");
   std::string state = effectiveState(*s, now);
+  if (state == "pending_delete")
+    return Result::fail(409, "SESSION_PENDING_DELETE", "This session is being archived.");
   if (state == "ended" || state == "expired")
     return Result::fail(409, "SESSION_ENDED", "This session has ended.");
   Student* st = findStudentByNumber(number);
@@ -1211,6 +1520,8 @@ Result Classroom::sessionPreview(const std::string& code, Ms now, Json& out) con
   for (size_t k = 0; k < sessions_.size(); ++k)
     if (sessions_[k].code == normalized) found = &sessions_[k];
   if (!found) return Result::fail(404, "NOT_FOUND", "No session matches this code.");
+  if (effectiveState(*found, now) == "pending_delete")
+    return Result::fail(409, "SESSION_PENDING_DELETE", "This session is being archived.");
   out = Json::object();
   out.set("ok", Json(true));
   Json s = Json::object();
@@ -1235,6 +1546,8 @@ Result Classroom::authorizeStudent(const std::string& token, Ms now, unsigned& s
     const Session* s = findSession(t.sessionId);
     if (!s) return Result::fail(401, "SESSION_CLOSED", "This session is no longer available.");
     const std::string state = effectiveState(*s, now);
+    if (state == "pending_delete")
+      return Result::fail(401, "SESSION_CLOSED", "This session is no longer available.");
     if ((state == "ended" || state == "expired") && s->endedMs && now > s->endedMs + kSessionGraceMs)
       return Result::fail(401, "SESSION_CLOSED", "This session has ended.");
     bool stillMember = false;
@@ -1806,12 +2119,19 @@ void Classroom::prune(Ms now) {
   }
   if (sessions_.size() > limits::kSessions) {
     for (size_t k = 0; k < sessions_.size() && sessions_.size() > limits::kSessions;) {
-      if (!isOpenState(effectiveState(sessions_[k], now))) {
+      if (!isOpenState(effectiveState(sessions_[k], now)) &&
+          sessions_[k].state != "pending_delete") {
         sessions_.erase(sessions_.begin() + static_cast<long>(k));
       } else {
         ++k;
       }
     }
+  }
+  for (size_t k = 0; k < pendingDeletions_.size();) {
+    if (!findSession(pendingDeletions_[k].sessionId))
+      pendingDeletions_.erase(pendingDeletions_.begin() + static_cast<long>(k));
+    else
+      ++k;
   }
 }
 
@@ -1820,6 +2140,54 @@ size_t Classroom::openSessionCount() const {
   for (size_t k = 0; k < sessions_.size(); ++k)
     if (isOpenState(sessions_[k].state)) ++n;
   return n;
+}
+
+// Compact, line-oriented status for the optional Uno display. It is not JSON:
+// the Uno has no room for a parser, and this line fits its 16x2-style layout.
+std::string Classroom::statusLine(Ms now) const {
+  size_t open = 0, live = 0, paused = 0;
+  const Session* pick = 0;
+  int pickRank = 0;
+  for (size_t k = 0; k < sessions_.size(); ++k) {
+    const Session& s = sessions_[k];
+    const std::string state = effectiveState(s, now);
+    if (isOpenState(state)) ++open;
+    if (state == "live") ++live;
+    if (state == "paused") ++paused;
+    int rank = 0;
+    if (state == "live") rank = 3;
+    else if (state == "paused") rank = 2;
+    else if (state == "ready") rank = 1;
+    else if (state == "ended" || state == "expired") rank = 1;
+    if (rank > pickRank || (rank == pickRank && pick && s.createdMs > pick->createdMs)) {
+      pick = &s;
+      pickRank = rank;
+    }
+  }
+
+  std::string out = "SNT1,";
+  out += std::to_string(static_cast<unsigned>(studentCount()));
+  out += ",";
+  out += std::to_string(static_cast<unsigned>(open));
+  out += ",";
+  out += std::to_string(static_cast<unsigned>(live));
+  out += ",";
+  out += std::to_string(static_cast<unsigned>(paused));
+  out += ",";
+  out += std::to_string(static_cast<unsigned>(submissionCount()));
+  out += ",";
+  out += std::to_string(static_cast<unsigned>(pendingDeletions_.size()));
+  out += ",";
+  if (!pick || pickRank == 0) {
+    out += "none,-----,0";
+    return out;
+  }
+  out += effectiveState(*pick, now);
+  out += ",";
+  out += pick->code;
+  out += ",";
+  out += std::to_string(static_cast<unsigned>(pick->joined.size()));
+  return out;
 }
 
 }  // namespace sntch

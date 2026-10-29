@@ -49,3 +49,21 @@
 #ifndef SNTCH_AP_HOSTNAME
 #define SNTCH_AP_HOSTNAME "sntch"
 #endif
+
+// Optional read-only status link to an Arduino Uno (or any 5 V UART display
+// board). The ESP32 only transmits; the Uno never sends commands back.
+#ifndef SNTCH_UNO_STATUS
+#define SNTCH_UNO_STATUS 1
+#endif
+#ifndef SNTCH_UNO_BAUD
+#define SNTCH_UNO_BAUD 9600
+#endif
+#ifndef SNTCH_UNO_TX_PIN
+#define SNTCH_UNO_TX_PIN 17
+#endif
+#ifndef SNTCH_UNO_RX_PIN
+#define SNTCH_UNO_RX_PIN 16  // reserved; do not connect the Uno TX
+#endif
+#ifndef SNTCH_UNO_STATUS_INTERVAL_MS
+#define SNTCH_UNO_STATUS_INTERVAL_MS 2000UL
+#endif

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "gitscribe": {
+      "command": "node",
+      "args": [
+        "C:/Users/Dominic/Desktop/MCPs/src/mcp/server.js"
+      ],
+      "env": {
+        "GITSCRIBE_DATA_DIR": "C:/Users/Dominic/Desktop/MCPs/data",
+        "GITSCRIBE_ALLOWED_ROOTS": "C:/Users/Dominic/Desktop/MCPs;C:/Users/Dominic/Desktop/Sntch"
+      }
+    }
+  }
+}

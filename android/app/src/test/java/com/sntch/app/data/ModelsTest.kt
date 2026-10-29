@@ -52,6 +52,31 @@ class ModelsTest {
     }
 
     @Test
+    fun `pending deletions parse backup metadata`() {
+        val sessions = """
+            [{"id":3,"code":"SNT-ABCD","refType":"exam","refId":11,"title":"Quiz","target":"9-A",
+              "state":"pending_delete","expiresInSec":0,"joined":[],"itemStatus":"active"}]
+        """.trimIndent()
+        val pending = """
+            [{"sessionId":3,"previousState":"ended","requestedMs":50000,"code":"SNT-ABCD",
+              "title":"Quiz","refType":"exam","refId":11,"backupPath":"/del/3.json",
+              "backupPresent":true,"backupBytes":2048}]
+        """.trimIndent()
+        val state = TeacherState.parse(
+            JSONObject(emptyTeacherStateJson(sessions = sessions, pendingDeletions = pending)),
+        )
+        val deletion = state.pendingDeletions.single()
+        assertEquals(3, deletion.sessionId)
+        assertEquals("ended", deletion.previousState)
+        assertEquals("/del/3.json", deletion.backupPath)
+        assertTrue(deletion.backupPresent)
+        assertEquals(2048, deletion.backupBytes)
+        assertTrue(state.sessions.single().pendingDelete)
+        assertFalse(state.sessions.single().open)
+        assertFalse(state.sessions.single().deleteEligible)
+    }
+
+    @Test
     fun `submission summaries parse grading fields`() {
         val submissions = """
             [{"id":9,"refType":"exam","refId":11,"sessionId":3,"studentId":1,"studentName":"Ana Cruz",

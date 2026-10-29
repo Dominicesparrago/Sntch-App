@@ -16,6 +16,8 @@ class FakeStore : LocalStore {
     override var showCorrect: Boolean = true
     private val activityDrafts = mutableMapOf<Int, String>()
     private val examDrafts = mutableMapOf<Int, Map<String, Any>>()
+    val deletionBackups = mutableMapOf<Int, String>()
+    var failDeletionBackupSave: Boolean = false
 
     override fun activityDraft(id: Int): String = activityDrafts[id] ?: ""
     override fun saveActivityDraft(id: Int, text: String) {
@@ -29,6 +31,18 @@ class FakeStore : LocalStore {
 
     override fun clearExamDraft(examId: Int) {
         examDrafts.remove(examId)
+    }
+
+    override fun saveDeletionBackup(sessionId: Int, json: String): Boolean {
+        if (failDeletionBackupSave) return false
+        deletionBackups[sessionId] = json
+        return true
+    }
+
+    override fun deletionBackup(sessionId: Int): String? = deletionBackups[sessionId]
+
+    override fun clearDeletionBackup(sessionId: Int) {
+        deletionBackups.remove(sessionId)
     }
 
     override fun clearStudentSession() {
@@ -106,6 +120,7 @@ class FakeController {
 
 fun emptyTeacherStateJson(
     sessions: String = "[]",
+    pendingDeletions: String = "[]",
     submissions: String = "[]",
 ): String = """
     {
@@ -127,6 +142,7 @@ fun emptyTeacherStateJson(
          "questions":[{"id":100,"type":"mc","prompt":"2+2?","options":["3","4"],"correct":1,"keys":[]}]}
       ],
       "sessions": $sessions,
+      "pendingDeletions": $pendingDeletions,
       "submissions": $submissions,
       "attendance": [
         {"date":"2026-10-25","section":"9-A","marks":[{"studentId":1,"status":"present"}]}

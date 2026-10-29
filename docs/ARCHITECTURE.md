@@ -97,6 +97,8 @@ lib/sntch_core/api.*     routes, auth, rate limit, envelopes
 | Submission summaries | controller | `/state.json` | yes |
 | Submission answers / activity text | controller | `/sub/<id>.json` | yes |
 | In-progress exam answers | controller | `/att/<exam>-<student>.json` | yes |
+| Deletion backups | controller (until ACK) | `/del/<session>.json` | yes |
+| Local deletion backups | phone | `filesDir/session-backups/<id>.json` | yes |
 | Teacher/student tokens | controller RAM | no | no (re-auth/re-join) |
 | UI drafts (unsent text, answers) | phone | SharedPreferences | yes, per app install |
 | Visual design reference | repository | n/a | n/a |
@@ -154,6 +156,8 @@ create ──▶ ready ──start──▶ live ──pause──▶ paused
                 │             │  ◀─resume───┘
                 │             └──────end────▶ ended
                 └──expiry (duration)────────▶ expired
+ready/ended/expired ──delete──▶ pending_delete ──ack──▶ removed
+                                     └──cancel──▶ previous state
 ```
 
 - Only a `live` session accepts `start exam`, `autosave` and `submit`.
@@ -164,6 +168,9 @@ create ──▶ ready ──start──▶ live ──pause──▶ paused
 - Membership is persisted, tokens are not. Joining a different session moves a student
   server-side (blocked while an exam is in progress), and endpoints re-check membership so an
   old token cannot act after a switch.
+- Deletion is a backup-first state: the controller writes `/del/<id>.json` and marks the session
+  `pending_delete`; students are gated out, and only the app's ACK removes the session. A failed
+  local save leaves the session queued for retry, and `cancel` restores the prior state.
 
 ## 9. Verification posture
 

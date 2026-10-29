@@ -1,6 +1,9 @@
 package com.sntch.app.data
 
 import android.content.Context
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -24,13 +27,19 @@ interface LocalStore {
     fun examDraft(examId: Int): Map<String, Any>
     fun saveExamDraft(examId: Int, answers: Map<String, Any>)
     fun clearExamDraft(examId: Int)
+    fun saveDeletionBackup(sessionId: Int, json: String): Boolean
+    fun deletionBackup(sessionId: Int): String?
+    fun clearDeletionBackup(sessionId: Int)
     fun clearStudentSession()
     fun forgetTeacher()
 }
 
 /** Local app memory: controller address, role, tokens, drafts. Never stores the teacher PIN. */
-class Prefs(context: Context) : LocalStore {
+class Prefs(private val context: Context) : LocalStore {
     private val store = context.getSharedPreferences("sntch.v1", Context.MODE_PRIVATE)
+    private val backupDir: File get() = File(context.filesDir, "session-backups")
+
+    private fun backupFile(sessionId: Int): File = File(backupDir, "$sessionId.json")
 
     override var baseUrl: String
         get() = store.getString("baseUrl", SntchApi.DEFAULT_ADDRESS) ?: SntchApi.DEFAULT_ADDRESS
@@ -106,6 +115,41 @@ class Prefs(context: Context) : LocalStore {
 
     override fun clearExamDraft(examId: Int) {
         store.edit().remove("exam-$examId").apply()
+    }
+
+    override fun saveDeletionBackup(sessionId: Int, json: String): Boolean = try {
+        val dir = backupDir
+        if (!dir.isDirectory && !dir.mkdirs()) {
+            false
+        } else {
+            val target = backupFile(sessionId)
+            val temp = File(dir, "$sessionId.json.tmp")
+            temp.writeText(json, Charsets.UTF_8)
+            try {
+                Files.move(
+                    temp.toPath(),
+                    target.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE,
+                )
+            } catch (error: Exception) {
+                Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+            target.isFile && target.readText(Charsets.UTF_8) == json
+        }
+    } catch (error: Exception) {
+        false
+    }
+
+    override fun deletionBackup(sessionId: Int): String? = try {
+        backupFile(sessionId).takeIf { it.isFile }?.readText(Charsets.UTF_8)
+    } catch (error: Exception) {
+        null
+    }
+
+    override fun clearDeletionBackup(sessionId: Int) {
+        backupFile(sessionId).delete()
+        File(backupDir, "$sessionId.json.tmp").delete()
     }
 
     override fun clearStudentSession() {
@@ -264,6 +308,30 @@ class TeacherRepository(
         post("/api/teacher/sessions/$id/$action")
     }
 
+    suspend fun deleteSession(id: Int): PendingDeletion = io {
+        val response = post("/api/teacher/sessions/$id/delete")
+        saveDeletionBackupAndAck(id)
+        PendingDeletion.parse(response)
+    }
+
+    suspend fun finishDeletion(id: Int) = io {
+        saveDeletionBackupAndAck(id)
+    }
+
+    suspend fun cancelDeletion(id: Int) = io {
+        post("/api/teacher/deletions/$id/cancel")
+        prefs.clearDeletionBackup(id)
+    }
+
+    suspend fun pendingDeletions(): List<PendingDeletion> = io {
+        val response = apiProvider().get("/api/teacher/deletions", requireToken())
+        response.array("pendingDeletions").objects().map { PendingDeletion.parse(it) }
+    }
+
+    suspend fun deletionBackup(id: Int): String? = io {
+        prefs.deletionBackup(id)
+    }
+
     suspend fun markAttendance(
         date: String,
         section: String,
@@ -295,6 +363,18 @@ class TeacherRepository(
     fun forget() {
         token = null
         prefs.forgetTeacher()
+    }
+
+    private fun saveDeletionBackupAndAck(id: Int) {
+        val backup = apiProvider().get("/api/teacher/deletions/$id", requireToken())
+        if (!prefs.saveDeletionBackup(id, backup.toString())) {
+            throw ApiException(
+                "BACKUP_NOT_SAVED",
+                "Could not save the session backup on this device; the session was not deleted.",
+                500,
+            )
+        }
+        post("/api/teacher/deletions/$id/ack")
     }
 
     private fun requireToken(): String =

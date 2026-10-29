@@ -114,6 +114,8 @@ data class Session(
     val isExam: Boolean get() = refType == "exam"
     val acceptsWork: Boolean get() = state == "live"
     val open: Boolean get() = state == "ready" || state == "live" || state == "paused"
+    val pendingDelete: Boolean get() = state == "pending_delete"
+    val deleteEligible: Boolean get() = state == "ready" || state == "ended" || state == "expired"
 
     companion object {
         fun parse(json: JSONObject) = Session(
@@ -129,6 +131,34 @@ data class Session(
                 (0 until array.length()).map { array.optInt(it) }
             },
             itemStatus = json.str("itemStatus"),
+        )
+    }
+}
+
+data class PendingDeletion(
+    val sessionId: Int,
+    val previousState: String,
+    val requestedMs: Long,
+    val code: String,
+    val title: String,
+    val refType: String,
+    val refId: Int,
+    val backupPath: String,
+    val backupPresent: Boolean,
+    val backupBytes: Int,
+) {
+    companion object {
+        fun parse(json: JSONObject) = PendingDeletion(
+            sessionId = json.int("sessionId"),
+            previousState = json.str("previousState", "ended"),
+            requestedMs = json.long("requestedMs"),
+            code = json.str("code"),
+            title = json.str("title"),
+            refType = json.str("refType", "activity"),
+            refId = json.int("refId"),
+            backupPath = json.str("backupPath"),
+            backupPresent = json.bool("backupPresent"),
+            backupBytes = json.int("backupBytes"),
         )
     }
 }
@@ -263,6 +293,7 @@ data class TeacherState(
     val activities: List<Item>,
     val exams: List<Item>,
     val sessions: List<Session>,
+    val pendingDeletions: List<PendingDeletion>,
     val submissions: List<Submission>,
     val attendance: List<AttendanceDay>,
     val events: List<Event>,
@@ -290,6 +321,7 @@ data class TeacherState(
                 activities = root.array("activities").objects().map { Item.parse(it) },
                 exams = root.array("exams").objects().map { Item.parse(it) },
                 sessions = root.array("sessions").objects().map { Session.parse(it) },
+                pendingDeletions = root.array("pendingDeletions").objects().map { PendingDeletion.parse(it) },
                 submissions = root.array("submissions").objects().map { Submission.parse(it) },
                 attendance = root.array("attendance").objects().map { AttendanceDay.parse(it) },
                 events = root.array("events").objects().map { Event.parse(it) },

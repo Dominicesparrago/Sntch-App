@@ -8,8 +8,8 @@ uses environment `esp32wroom32d` and board ID `esp32dev`. The configured flash s
 The WROOM-32D runs SNTCH V1 as a standalone controller. It creates the local `SNTCH-EXAM` Wi-Fi
 access point (`sntch-1234`, channel 1), serves the existing SNTCH HTTP API, coordinates classroom
 sessions, and stores state in LittleFS. The Uno and TFT are not required for classroom operation.
-The Uno reference sketch remains preserved and is an independent test; there is no implemented
-ESP32-to-Uno protocol.
+The Uno reference sketch remains preserved and can optionally show ESP32 status from a one-way UART
+feed; it cannot send commands back to SNTCH.
 
 ## Optional WROOM TFT/button test
 
@@ -31,6 +31,26 @@ software backlight.
 The exact WROOM carrier-board pin labels and the TFT breakout's VCC/backlight circuitry are not
 identified. Check the carrier pinout and confirm 3.3 V-compatible display logic and power
 requirements before wiring. The pin map has compiled but has not been physically tested.
+
+## Optional Uno read-only status link
+
+The ESP32 sends a status line on UART2 TX GPIO17 at 9600 8N1. It never receives, so the Uno cannot
+change sessions, grades, or configuration. The Uno R3 is a 5 V board: put a 3.3 V-to-5 V level
+shifter between ESP32 GPIO17 and Uno D0/RX, connect a common ground, and leave Uno D1/TX
+disconnected. Disconnect the ESP32 TX jumper while uploading the Uno sketch, because the ESP32 and
+the USB-UART both drive D0.
+
+| Signal | Connection |
+|---|---|
+| ESP32 GPIO17 TX (3.3 V) | level-shifter low-voltage input |
+| Level shifter high-voltage output | Uno D0 RX (5 V) |
+| GND | common ground |
+| Uno D1 TX | not connected |
+
+The `SNTCH-EXAM` reference TFT test project also lists GPIO17 as TFT reset. Those two uses conflict;
+the Uno status link belongs to the main firmware, not that separate TFT test project. Reassign one
+of them if both are ever combined. The link has compiled and its protocol is covered by native
+tests, but the physical level-shifter wiring and Uno display have not been tested on hardware.
 
 ## Flash and first-use storage
 

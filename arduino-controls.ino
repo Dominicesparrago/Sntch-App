@@ -5,12 +5,17 @@
 //  TFT   SCK->D13  SDA/MOSI->D11  CS->D10  DC/A0->D7  RST->D6
 //  Buttons (other leg to GND): Select->D2  Back->D3  Left->D4  Right->D5
 //  Buzzer: + -> D9, - -> GND
-//  (No LEDs, no ESP32 link in this version: the Uno does everything by itself.)
+//  (Sessions are still managed locally on the Uno; the ESP32 link is status-only.)
 //
 //  Menu: Activities / Exams  -> session list (Add / open / delete)
 //        inside a session    -> Join QR, Students monitor, Delete
 //        QR Code             -> Wi-Fi join QR only
+//        Sync                -> read-only ESP32 status over UART
 //  Sessions are saved in EEPROM, so they survive power-off.
+//
+//  ESP32 link (read-only): ESP32 GPIO17 (TX2) -> level shifter -> Uno D0 (RX)
+//  at 9600 8N1, common GND. The Uno never transmits; disconnect the ESP32 TX
+//  jumper while uploading a sketch over USB because both share D0.
 //
 //  Needs the "QRCode" library by Richard Moore (Library Manager), plus the
 //  Adafruit GFX and ST7735 libraries you already use.
@@ -55,6 +60,8 @@ void backlight(bool on) {
 
 // Serial debug messages. Costs ~1.5 KB of flash: the Uno is nearly full, so keep 0 unless debugging.
 #define DEBUG_SERIAL 0
+// Read-only status frames from the ESP32 on the hardware UART (D0 RX).
+#define STATUS_LINK 1
 #if DEBUG_SERIAL
   #define LOG(msg) Serial.println(F(msg))
 #else
@@ -76,12 +83,13 @@ const int MARGIN = 4;
 Adafruit_ST7735 tft(TFT_CS, TFT_DC, TFT_RST);
 
 enum Screen { SCREEN_FACE, SCREEN_MENU, SCREEN_DETAIL, SCREEN_SLEEP,
-              SCREEN_LIST, SCREEN_SESSION, SCREEN_QR, SCREEN_STUDENTS, SCREEN_CONFIRM };
+              SCREEN_LIST, SCREEN_SESSION, SCREEN_QR, SCREEN_STUDENTS, SCREEN_CONFIRM,
+              SCREEN_STATUS };
 Screen screen = SCREEN_FACE;
 
 const uint8_t NUM_ITEMS = 5;
 const char* const menuItems[NUM_ITEMS] = {"Activities", "Exams", "QR Code", "Sync", "Settings"};
-const uint8_t ITEM_ACTIVITIES = 0, ITEM_EXAMS = 1, ITEM_QR = 2;   // indexes in menuItems
+const uint8_t ITEM_ACTIVITIES = 0, ITEM_EXAMS = 1, ITEM_QR = 2, ITEM_SYNC = 3;   // indexes in menuItems
 int8_t selected = 0;
 
 unsigned long lastActivity = 0;
@@ -625,6 +633,16 @@ int8_t curSlot = -1;                  // session that is open
 uint8_t actionSel = 0;                // 0 Join QR, 1 Students, 2 Delete
 char qrKind = 'W';                    // 'W' = Wi-Fi QR, 'S' = session join QR
 
+// Read-only ESP32 status (line protocol, XOR checksum).
+char statusBuf[64];
+uint8_t statusLen = 0;
+bool statusValid = false;
+unsigned long statusAt = 0;
+uint16_t statusStudents = 0, statusOpen = 0, statusLive = 0, statusPaused = 0;
+uint16_t statusSubs = 0, statusPending = 0, statusJoined = 0;
+char statusState[8] = "none";
+char statusCode[9] = "-----";
+
 const char CODE_ALPHABET[] PROGMEM = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";   // 31 chars, no look-alikes
 
 void saveSession(uint8_t i) { EEPROM.put(1 + i * sizeof(Session), sessions[i]); }
@@ -822,6 +840,120 @@ void drawConfirm() {
   printCenteredF(F("Back = Cancel"), 140, 1);
 }
 
+// =====================================================================
+//  ESP32 STATUS (read-only)
+// =====================================================================
+int8_t hexDigit(char c) {
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  return -1;
+}
+
+uint16_t parseCount(const char* s) {
+  uint16_t v = 0;
+  while (*s >= '0' && *s <= '9') v = v * 10 + (*s++ - '0');
+  return v;
+}
+
+void drawStatus() {
+  tft.fillScreen(ST77XX_BLACK);
+  tft.setTextColor(ST77XX_WHITE);
+  printCenteredF(F("SNTCH STATUS"), 6, 2);
+
+  if (!statusValid) {
+    printCenteredF(F("UART: waiting"), 45, 1);
+    printCenteredF(F("ESP32 TX -> D0"), 62, 1);
+    printCenteredF(F("via level shifter"), 76, 1);
+    printCenteredF(F("Back = Menu"), 148, 1);
+    return;
+  }
+
+  printCenteredF(F("UART: OK"), 30, 1);
+  tft.setCursor(8, 46);
+  tft.print(F("Students "));
+  tft.print(statusStudents);
+  tft.setCursor(8, 60);
+  tft.print(F("Open "));
+  tft.print(statusOpen);
+  tft.print(F("  L"));
+  tft.print(statusLive);
+  tft.print(F(" P"));
+  tft.print(statusPaused);
+  tft.setCursor(8, 74);
+  tft.print(F("Subs "));
+  tft.print(statusSubs);
+  tft.print(F("  Pend "));
+  tft.print(statusPending);
+  printCenteredF(F("Current"), 94, 1);
+  printCentered(statusCode, 106, 1);
+  tft.setCursor(8, 122);
+  tft.print(statusState);
+  tft.print(F("  joined "));
+  tft.print(statusJoined);
+  printCenteredF(F("Back = Menu"), 148, 1);
+}
+
+void parseStatusFrame() {
+  if (statusLen == 0) return;
+  statusBuf[statusLen] = 0;
+  char* star = strchr(statusBuf, '*');
+  if (!star || strlen(star + 1) != 2) return;
+  int8_t hi = hexDigit(star[1]);
+  int8_t lo = hexDigit(star[2]);
+  if (hi < 0 || lo < 0) return;
+  *star = 0;
+  uint8_t sum = 0;
+  for (char* p = statusBuf; *p; ++p) sum ^= (uint8_t)*p;
+  if (sum != (uint8_t)((hi << 4) | lo)) return;
+
+  char* fields[10];
+  uint8_t nf = 0;
+  fields[nf++] = statusBuf;
+  for (char* p = statusBuf; *p; ++p) {
+    if (*p == ',') {
+      *p = 0;
+      if (nf < 10) fields[nf++] = p + 1;
+    }
+  }
+  if (nf != 10 || strcmp(fields[0], "SNT1") != 0) return;
+  if (strlen(fields[7]) >= sizeof(statusState) || strlen(fields[8]) >= sizeof(statusCode)) return;
+
+  statusStudents = parseCount(fields[1]);
+  statusOpen = parseCount(fields[2]);
+  statusLive = parseCount(fields[3]);
+  statusPaused = parseCount(fields[4]);
+  statusSubs = parseCount(fields[5]);
+  statusPending = parseCount(fields[6]);
+  strcpy(statusState, fields[7]);
+  strcpy(statusCode, fields[8]);
+  statusJoined = parseCount(fields[9]);
+  statusValid = true;
+  statusAt = millis();
+  if (screen == SCREEN_STATUS) drawStatus();
+}
+
+void pollStatusLink() {
+#if STATUS_LINK
+  while (Serial.available() > 0) {
+    char c = (char)Serial.read();
+    if (c == '\r') continue;
+    if (c == '\n') {
+      parseStatusFrame();
+      statusLen = 0;
+    } else if (statusLen < sizeof(statusBuf) - 1) {
+      statusBuf[statusLen++] = c;
+    } else {
+      statusLen = 0;                 // overlong frame: wait for the next newline
+    }
+  }
+  if (statusValid && millis() - statusAt > 6000) {
+    statusValid = false;
+    if (screen == SCREEN_STATUS) drawStatus();
+  }
+#endif
+}
+
 // QR code: version 3 (29x29), low error correction, drawn black on white.
 void drawQrScreen() {
   tft.fillScreen(ST77XX_BLACK);
@@ -959,6 +1091,9 @@ void onSelectShort() {
         qrKind = 'W';
         screen = SCREEN_QR;
         drawQrScreen();
+      } else if (selected == ITEM_SYNC) {
+        screen = SCREEN_STATUS;
+        drawStatus();
       } else {
         screen = SCREEN_DETAIL;
         drawDetail();
@@ -983,6 +1118,7 @@ void goBack() {
       break;
     case SCREEN_DETAIL:
     case SCREEN_LIST:
+    case SCREEN_STATUS:
       screen = SCREEN_MENU;
       drawMenu();
       break;
@@ -1087,7 +1223,7 @@ void checkPowerHold(unsigned long now) {
 //  SETUP / LOOP
 // =====================================================================
 void setup() {
-#if DEBUG_SERIAL
+#if DEBUG_SERIAL || STATUS_LINK
   Serial.begin(9600);
 #endif
   loadSessions();
@@ -1128,6 +1264,7 @@ void loop() {
 
   updateButtons(now);
   checkPowerHold(now);
+  pollStatusLink();
 
   if (screen != SCREEN_SLEEP && now - lastActivity >= idleLimitFor(screen)) {
     enterSleep();

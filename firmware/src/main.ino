@@ -35,6 +35,9 @@ sntch_fw::ApiServer g_server(&g_api, &g_classroom);
 
 uint32_t g_lastSaveMs = 0;
 uint32_t g_lastDiagMs = 0;
+#if SNTCH_UNO_STATUS
+uint32_t g_lastUnoStatusMs = 0;
+#endif
 int g_lastClients = -1;
 sntch_fw::NetworkRecovery g_network;
 bool g_hasReportedReady = false;
@@ -84,6 +87,23 @@ void refreshDeviceInfo() {
   g_device = collectDeviceInfo(name);
   g_api.setDeviceInfo(g_device);
 }
+
+#if SNTCH_UNO_STATUS
+uint8_t statusChecksum(const std::string& line) {
+  uint8_t sum = 0;
+  for (size_t k = 0; k < line.size(); ++k) sum ^= static_cast<uint8_t>(line[k]);
+  return sum;
+}
+
+void sendUnoStatus(uint32_t nowMs) {
+  const std::string line = g_classroom.statusLine(sntch_fw::uptimeMs());
+  char frame[96];
+  std::snprintf(frame, sizeof(frame), "%s*%02X\n", line.c_str(),
+                static_cast<unsigned>(statusChecksum(line)));
+  Serial2.print(frame);
+  g_lastUnoStatusMs = nowMs;
+}
+#endif
 
 void logReady(bool recovered) {
   const String name = deviceName();
@@ -163,6 +183,10 @@ void setup() {
   g_classroomReady = true;
   g_lastSaveMs = millis();
   g_lastDiagMs = millis();
+#if SNTCH_UNO_STATUS
+  Serial2.begin(SNTCH_UNO_BAUD, SERIAL_8N1, SNTCH_UNO_RX_PIN, SNTCH_UNO_TX_PIN);
+  sendUnoStatus(millis());
+#endif
   attemptRecovery(millis());
 }
 
@@ -183,6 +207,12 @@ void loop() {
     g_classroom.save();
     g_lastSaveMs = millis();
   }
+
+#if SNTCH_UNO_STATUS
+  if (static_cast<uint32_t>(millis() - g_lastUnoStatusMs) >= SNTCH_UNO_STATUS_INTERVAL_MS) {
+    sendUnoStatus(millis());
+  }
+#endif
 
   if (static_cast<uint32_t>(millis() - g_lastDiagMs) >= SNTCH_DIAG_INTERVAL_MS) {
     refreshDeviceInfo();

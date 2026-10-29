@@ -263,7 +263,7 @@
             <li>Teacher Android phone/tablet and student Android device(s).</li>
           </ul>
           <p>The exact carrier-board model is not identified. Confirm the board marking, USB connector, and header labels before wiring or flashing.</p>
-          <div class="callout"><span class="call-icon">i</span><p><strong>No Uno link is implemented.</strong>The supplied Uno test sketch manages its own display/session data. It does not communicate with the SNTCH firmware; do not make an Uno necessary for class use.</p></div>
+          <div class="callout"><span class="call-icon">i</span><p><strong>The Uno link is optional and one-way.</strong>The firmware can transmit a read-only status line to the supplied Uno sketch every 2 s on UART2 TX (GPIO17) at 9600 8N1, so the Uno can act as a wall display. The ESP32 never reads from the Uno and the Uno cannot change sessions, grades or settings; nothing about class use depends on it. The Uno R3 is 5 V, so a 3.3 V-to-5 V level shifter and a common ground are required, and Uno D1/TX stays disconnected. This wiring has not been tested on hardware.</p></div>
         </article>
         <figure class="diagram">
           <svg viewBox="0 0 650 280" role="img" aria-labelledby="boardTitle boardDesc">
@@ -351,6 +351,7 @@ pio run -e esp32wroom32d -t uploadfs</code></pre><p>The image carries a pending 
             <li>Use session details to see participants and submissions; pause, resume, or end the session there.</li>
             <li>Use <strong>Attendance</strong> to select a section/date and mark present, late, or absent. The phone supplies the date.</li>
             <li>Use <strong>Results</strong> to open submissions, review activity responses, and view examination scores. Student answer review follows the configured results policy.</li>
+            <li>To remove a finished session, delete it from session details. The phone stores its own copy first and only then confirms the deletion, so the class keeps a record on the teacher device.</li>
           </ol>
         </article>
       </div>
@@ -385,6 +386,9 @@ pio run -e esp32wroom32d -t uploadfs</code></pre><p>The image carries a pending 
           <div><h3>What survives</h3><p>Supported classroom state, roster, sessions, attendance, activities/exams, submissions, and saved exam work are stored locally. On restart, a live session is restored as paused. Authentication tokens are RAM-only, so teacher sign-in and student rejoin may be needed.</p></div>
           <div><h3>How startup decides</h3><p>A pending marker in an explicitly uploaded fresh filesystem allows first state creation. An installed marker with a missing state is treated as data loss and blocks startup. Valid old SNTCH state without a marker can be adopted in place. A malformed or unsupported state is preserved and rejected.</p></div>
         </div>
+        <h3 style="margin-top:1rem">Deleting a session is a two-step handover</h3>
+        <p>Deleting a session moves it out of the class without throwing it away first. The controller writes a copy of that session to <code>/del/&lt;id&gt;.json</code> and marks it <em>pending deletion</em>; students can no longer join or see it. The teacher app downloads the copy, saves it on the phone under <code>files/session-backups/</code>, and only then sends the confirmation that removes the controller copy.</p>
+        <p class="small">If the phone cannot save the backup, it does not confirm, so the session stays pending with its server-side copy intact. Pending deletions survive a restart and keep the session hidden from students until a phone completes or cancels the handover, and the phone keeps its own backup after confirmation as the teacher’s copy.</p>
         <div class="callout danger"><span class="call-icon">!</span><p><strong>Storage error? Stop before writing a filesystem image.</strong>Do not use <code>uploadfs</code>, formatting, or chip erase to “try a fix.” These can replace saved class files. Record serial logs, keep power stable, and back up or inspect the device using a data-preserving method before recovery.</p></div>
       </div>
     </section>
@@ -398,6 +402,7 @@ pio run -e esp32wroom32d -t uploadfs</code></pre><p>The image carries a pending 
         <tr><td>Health works, app cannot connect</td><td>Use the app address <code>http://192.168.4.1</code>, tap Test, and check for a reconnect banner. Avoid an extra trailing path.</td><td>Verify the app has network access and is still on the controller Wi-Fi; health alone does not prove every route.</td></tr>
         <tr><td>Teacher login or request fails</td><td>Confirm the configured teacher PIN and that the controller is ready. Check the app’s displayed error and current session state.</td><td>Use the PIN value compiled into this firmware; change it only through a planned rebuild.</td></tr>
         <tr><td>Student cannot join or submit</td><td>Check the session code, student number/roster, section target, and whether the teacher started or paused/ended the session.</td><td>Ask the teacher to verify session status. Rejoin after Wi-Fi returns; drafts are retained locally by the app.</td></tr>
+        <tr><td>A deleted session still appears as pending</td><td>The teacher phone has not finished the handover, so the controller is correctly holding the session copy in <code>/del</code>. Check the phone is on SNTCH Wi-Fi and the app is signed in.</td><td>Open the teacher app and let it complete or cancel the pending deletion. Do not upload a filesystem image or erase flash to clear it.</td></tr>
         <tr><td>Saved classroom state will not load</td><td>Photograph/copy serial error text and stop repeated uploads. Keep the controller powered and do not run <code>uploadfs</code> or erase.</td><td>Preserve existing flash data and ask for data-safe recovery help. Formatting is not a diagnostic step.</td></tr>
         <tr><td>TFT is blank</td><td>This tests the separate WROOM peripheral sketch only. Verify display orientation/tab option, SPI wiring, GND, VCC, backlight, and exact breakout requirements.</td><td>Recheck GPIO 18/23/22/21/17 and display voltage compatibility before reconnecting power.</td></tr>
         <tr><td>Buttons do not respond</td><td>Check each switch goes from GPIO to GND, correct pin map 32/33/25/26, and inputs use pull-ups.</td><td>Try one button at a time with the peripheral test loaded; do not wire a 5 V signal into ESP32 GPIO.</td></tr>

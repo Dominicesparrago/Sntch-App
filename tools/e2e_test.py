@@ -339,6 +339,69 @@ def phase_a():
     status, _ = req("GET", f"/api/student/submissions/{submission_b}", None, student_b)
     check(status == 200, "a student can read their own submission")
 
+    # ---- deletion backup lifecycle --------------------------------------
+    status, _ = req("POST", f"/api/teacher/sessions/{session_b['id']}/end", None, teacher)
+    check(status == 200, "9-B session ended before delete checks")
+    status, refused = req("POST", f"/api/teacher/sessions/{session_b['id']}/delete", None, teacher)
+    check(status == 409 and refused["error"]["code"] == "SESSION_HAS_SUBMISSIONS",
+          "session with submissions cannot be deleted")
+    status, refused = req("POST", f"/api/teacher/sessions/{activity_session}/delete", None, teacher)
+    check(status == 409 and refused["error"]["code"] == "SESSION_ACTIVE",
+          "live session cannot be deleted")
+
+    status, disposable = req(
+        "POST", "/api/teacher/activities", {"title": "Delete me", "target": "9-A", "instructions": "Archive."}, teacher
+    )
+    disposable_id = disposable["id"]
+    req("POST", f"/api/teacher/activities/{disposable_id}/publish", None, teacher)
+    status, disposable_session = req(
+        "POST", "/api/teacher/sessions", {"refType": "activity", "refId": disposable_id}, teacher
+    )
+    disposable_session_id = disposable_session["id"]
+    status, state = req("GET", "/api/teacher/state", None, teacher)
+    disposable_code = next(s["code"] for s in state["sessions"] if s["id"] == disposable_session_id)
+
+    status, queued = req("POST", f"/api/teacher/sessions/{disposable_session_id}/delete", None, teacher)
+    check(status == 200 and queued["pending"] is True, "ready session queues for deletion")
+    status, again = req("POST", f"/api/teacher/sessions/{disposable_session_id}/delete", None, teacher)
+    check(status == 200 and again["pending"] is True, "delete request is idempotent")
+    status, state = req("GET", "/api/teacher/state", None, teacher)
+    pending_session = next(s for s in state["sessions"] if s["id"] == disposable_session_id)
+    check(pending_session["state"] == "pending_delete", "pending session reports pending_delete")
+    status, preview = req("GET", f"/api/session/{disposable_code}")
+    check(status == 409 and preview["error"]["code"] == "SESSION_PENDING_DELETE",
+          "pending session is hidden from students")
+    status, _ = req("POST", "/api/student/join", {"code": disposable_code, "studentNumber": "S-001"})
+    check(status == 409, "students cannot join a pending-delete session")
+
+    status, deletions = req("GET", "/api/teacher/deletions", None, teacher)
+    pending_entry = next((d for d in deletions["pendingDeletions"] if d["sessionId"] == disposable_session_id), None)
+    check(pending_entry is not None, "deletion queue lists the pending session")
+    check(pending_entry and pending_entry["backupPresent"] is True, "backup file exists before ACK")
+    status, backup = req("GET", f"/api/teacher/deletions/{disposable_session_id}", None, teacher)
+    check(status == 200 and backup["type"] == "sntch-deletion-backup", "backup download is versioned")
+    check(backup["session"]["code"] == disposable_code and backup["participants"] == [],
+          "backup carries the session and its empty participant list")
+    status, _ = req("GET", f"/api/teacher/deletions/{exam_session_id}", None, teacher)
+    check(status == 404, "no backup exists for a session not pending deletion")
+
+    status, cancellable = req(
+        "POST", "/api/teacher/activities", {"title": "Keep me", "target": "9-A", "instructions": "Stay."}, teacher
+    )
+    cancellable_id = cancellable["id"]
+    req("POST", f"/api/teacher/activities/{cancellable_id}/publish", None, teacher)
+    status, cancellable_session = req(
+        "POST", "/api/teacher/sessions", {"refType": "activity", "refId": cancellable_id}, teacher
+    )
+    cancellable_session_id = cancellable_session["id"]
+    req("POST", f"/api/teacher/sessions/{cancellable_session_id}/delete", None, teacher)
+    status, canceled = req("POST", f"/api/teacher/deletions/{cancellable_session_id}/cancel", None, teacher)
+    check(status == 200 and canceled["canceled"] is True and canceled["state"] == "ready",
+          "cancel restores the session to ready")
+    status, deletions = req("GET", "/api/teacher/deletions", None, teacher)
+    check(all(d["sessionId"] != cancellable_session_id for d in deletions["pendingDeletions"]),
+          "cancel removes the session from the queue")
+
     # ---- validation and limits ------------------------------------------
     status, _ = req("POST", "/api/teacher/activities", raw="{bad json", token=teacher)
     check(status == 400, "malformed JSON rejected")
@@ -359,6 +422,8 @@ def phase_a():
                 "activity_session": activity_session,
                 "session_b": session_b["id"],
                 "exam_id": exam_id,
+                "deletion_session": disposable_session_id,
+                "deletion_code": disposable_code,
             },
             handle,
         )
@@ -384,6 +449,27 @@ def phase_b():
     check(sessions[saved["exam_session"]]["state"] == "paused", "live session reloads as paused")
     check(len(state["submissions"]) == 3, "all submissions survived the restart")
     check(len(state["attendance"]) == 1, "attendance survived the restart")
+
+    status, deletions = req("GET", "/api/teacher/deletions", None, teacher)
+    recovered = next((d for d in deletions["pendingDeletions"] if d["sessionId"] == saved["deletion_session"]), None)
+    check(recovered is not None and recovered["backupPresent"] is True,
+          "pending deletion and backup survive the restart")
+    status, preview = req("GET", f"/api/session/{saved['deletion_code']}")
+    check(status == 409 and preview["error"]["code"] == "SESSION_PENDING_DELETE",
+          "pending session stays hidden after the restart")
+    status, backup = req("GET", f"/api/teacher/deletions/{saved['deletion_session']}", None, teacher)
+    check(status == 200 and backup["session"]["id"] == saved["deletion_session"],
+          "backup downloads after the restart")
+    status, removed = req("POST", f"/api/teacher/deletions/{saved['deletion_session']}/ack", None, teacher)
+    check(status == 200 and removed["removed"] is True, "ACK finalizes the deletion")
+    status, state = req("GET", "/api/teacher/state", None, teacher)
+    check(all(s["id"] != saved["deletion_session"] for s in state["sessions"]),
+          "ACK removes the session from the teacher snapshot")
+    status, deletions = req("GET", "/api/teacher/deletions", None, teacher)
+    check(all(d["sessionId"] != saved["deletion_session"] for d in deletions["pendingDeletions"]),
+          "ACK empties the deletion queue")
+    status, removed = req("POST", f"/api/teacher/deletions/{saved['deletion_session']}/ack", None, teacher)
+    check(status == 200 and removed["alreadyFinalized"] is True, "repeated ACK is idempotent")
 
     status, _ = req("POST", f"/api/teacher/sessions/{saved['exam_session']}/resume", None, teacher)
     check(status == 200, "teacher resumes recovered session")
