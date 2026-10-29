@@ -40,17 +40,21 @@ exercised in simulation, not on a phone or board.
 
 ## 3. GitScribe MCP
 
-**Not used for the work recorded here.** GitScribe MCP v1.0.0 exists out-of-tree at
-`C:\Users\Dominic\Desktop\MCPs`. Earlier notes show its stdio server being started by hand and a
-heartbeat confirmed, but the client could not discover or call its tools, so **no GitScribe tool was
-used** to file plans, logs or documentation; see `docs/GITSCRIBE_MCP_VERIFICATION.md`.
+**Configured and verified; host tool injection still outstanding.** GitScribe MCP v1.0.0 lives
+out-of-tree at `C:\Users\Dominic\Desktop\MCPs` and is now declared for this project in `.mcp.json`
+(`node C:/Users/Dominic/Desktop/MCPs/src/mcp/server.js`, data dir `.../MCPs/data`, allowed roots
+`MCPs` plus this repository).
 
-In the session that produced the deletion lifecycle and the counts above, no `gitscribe-mcp` tool
-was present in the session tool list, `gitscribe` was not on `PATH` or among installed npm globals,
-and the project has no `.mcp.json`/`opencode.jsonc`. `AGENTS.md` asks for GitScribe before changes;
-the task prompt asked to report the blocker and continue. These documents are the record. If you
-provide the MCP command/path or permission to configure it, the work log can be pushed through
-GitScribe on a later session; until then no GitScribe operation is claimed.
+A real stdio MCP client handshake was run against that exact configuration: the server announced
+`gitscribe` 1.0.0, listed **19 tools**, and `list_projects` returned the registered `Sntch` project
+(`proj_e159c96e-7360-47b5-8dda-fee955079039`). Through that client the work session, plan,
+implementation note and MCP handshake test result were recorded in GitScribe for this repository.
+
+The gap is narrower than before but not closed: the **host session's own tool list still has no
+`gitscribe` tools**, because a `.mcp.json` added mid-session is only read when a client starts. A
+client restart that reads `.mcp.json` is required before MCP tools are natively callable, so the
+records above are reported by an external client rather than injected into this session. See
+`docs/GITSCRIBE_MCP_VERIFICATION.md`. Nothing here claims a natively attached MCP tool.
 
 ## 4. Known limitations
 
