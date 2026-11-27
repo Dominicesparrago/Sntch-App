@@ -1,8 +1,8 @@
 # SNTCH Hardware Compatibility — photographed ESP-32U development board
 
-This document covers **Option A: Arduino UNO R3 + ESP-32U development board**. Option C
-(`esp32_phone_admin`, with microSD) is the selected/default PlatformIO build. Use the
-[interactive wiring blueprint](../hardware/wiring.html) and [hardware build guide](DUAL_HARDWARE.md).
+**Option C** is the selected build. Use the [Option C wiring diagram](../hardware/wiring.html#phone-admin)
+and [setup guide](../firmware/phone_admin/README.md) for the ESP-32U, TFT, and external microSD module.
+The remaining sections cover Option A and legacy configurations.
 The photos identify an ESP-32U board with a micro-USB connector, 38 header pins, EN/BOOT buttons,
 onboard USB-UART/regulator components and an IPEX/U.FL-style antenna socket. They do **not** resolve
 the exact carrier SKU, IC markings/ratings, flash size or antenna connector series. PlatformIO's
@@ -126,7 +126,7 @@ run `uploadfs` on a device whose classroom files need to be preserved.
 
 - Export a private `SNTCH_AP_PASSWORD` (8+ characters) and `SNTCH_TEACHER_PIN` (8+ digits) in
   the shell before building the main firmware.
-- Selected main firmware: `pio run -e esp32_dual -e uno_display`.
+- Option A firmware: `pio run -e esp32_dual -e uno_display`.
 - ESP32 filesystem image: `pio run -e esp32_dual -t buildfs`.
 - TFT/button test: run `pio run` in `firmware/esp32_wroom32d_tft_buttons/`.
 - Portable core and HTTP/restart tests: `bash tools/native_build.sh`.

@@ -127,7 +127,7 @@
         </ol>
         <p><strong>Access control:</strong> Keep the network protected and require the teacher PIN for teacher functions. Do not put the PIN in a QR code or display it on the TFT. The existing teacher app manages classroom records and sessions; changing Wi-Fi credentials or firmware settings from the phone would need additional app and firmware work.</p>
         <h2>microSD connections</h2>
-        <p>Wire a separate SPI microSD module to the ESP32 header using the connections below, then insert a prepared FAT32 card. The classroom service will not start if it cannot mount the card. Options A and B use internal LittleFS.</p>
+        <p>Wire a separate SPI microSD module to the ESP32 header using the connections below, then insert a <a href="../firmware/phone_admin/README.md#prepare-the-card-and-flash">prepared FAT32 card</a>. The classroom service will not start if it cannot mount the card. Options A and B use internal LittleFS.</p>
         <div class="table-scroll"><table class="solo-table"><thead><tr><th>SD module pin</th><th>ESP32 connection</th><th>Use / condition</th></tr></thead><tbody>
           <tr><td>SCK</td><td>GPIO18 · shared with TFT SCK</td><td>Shared SPI clock; both devices need a separate chip-select signal.</td></tr>
           <tr><td>MOSI / DI</td><td>GPIO23 · shared with TFT MOSI</td><td>ESP32-to-card data; confirm the module’s SPI pin labels.</td></tr>
@@ -175,7 +175,7 @@
       </div>
     </section>
     <footer>
-      <span>Reference drawings are top view, not scale templates. Open <a href="../docs/DUAL_HARDWARE.md">build and bench-test notes</a>.</span>
+      <span>Reference drawings are top view, not scale templates. Open the <a href="../firmware/phone_admin/README.md">Option C setup guide</a> or the <a href="../docs/DUAL_HARDWARE.md">Options A and B guide</a>.</span>
       <span><a href="https://docs.arduino.cc/hardware/uno-rev3/">UNO R3</a> · <a href="https://www.ti.com/lit/ds/symlink/sn74lvc245a.pdf">74LVC245A reference datasheet</a> · <a href="https://www.ti.com/lit/ds/symlink/sn74hct125.pdf">74HCT125 reference datasheet</a></span>
     </footer>
   </main>

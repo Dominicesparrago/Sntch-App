@@ -27,6 +27,7 @@ typedef int socklen_t;
 #include <unistd.h>
 #define closesocket close
 typedef int SOCKET;
+constexpr SOCKET INVALID_SOCKET = -1;
 #endif
 
 #include "sntch/api.hpp"
@@ -108,8 +109,8 @@ class FileStorage : public Storage {
     return out;
   }
 
-  size_t usedBytes() {
-    size_t total = 0;
+  uint64_t usedBytes() override {
+    uint64_t total = 0;
     std::error_code ec;
     for (fs::recursive_directory_iterator it(path("")), end; it != end; it.increment(ec)) {
       if (ec) break;
@@ -118,7 +119,7 @@ class FileStorage : public Storage {
     return total;
   }
 
-  size_t totalBytes() { return 1024 * 1024; }
+  uint64_t totalBytes() override { return 1024 * 1024; }
 
  private:
   std::string path(const std::string& p) const {

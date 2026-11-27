@@ -1,4 +1,4 @@
-// SNTCH controller firmware for ESP32-WROOM-32D (classic ESP32).
+// SNTCH controller firmware for classic ESP32. Option C uses TFT and SPI microSD.
 //
 // Boot: mount classroom storage, load the snapshot, start the SNTCH Wi-Fi
 // access point, serve the local HTTP/JSON API. All classroom logic lives in

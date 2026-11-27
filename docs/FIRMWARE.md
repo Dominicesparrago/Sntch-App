@@ -1,14 +1,14 @@
 # ESP32 controller firmware
 
-For [Option C, ESP32 phone administration](../firmware/phone_admin/README.md), build
-`esp32_phone_admin`. It starts on power-up and uses a TFT and a prepared microSD card.
+The default target, `esp32_phone_admin`, is [Option C: ESP32 phone administration](../firmware/phone_admin/README.md).
+It starts on power-up, drives a TFT, and stores classroom records on an external SPI microSD module.
 
 For the [UNO + ESP-32U dual-controller build](DUAL_HARDWARE.md#option-a-alternative-version-a-dual-controller),
 build `uno_display` and `esp32_dual`. The UNO owns the TFT and buttons; the ESP32 runs Wi-Fi,
 the API and classroom state. The existing framed UART2 protocol is unchanged. `esp32_solo` is the
 alternate ESP32-only display build, and `esp32wroom32d` remains a legacy headless/status target.
-Options A and B store classroom state in internal LittleFS. The LittleFS setup and recovery
-instructions below apply to those builds.
+Options A and B store classroom state in internal LittleFS; their setup is in the
+[alternate hardware guide](DUAL_HARDWARE.md).
 
 ## 1. Target and toolchain
 
@@ -24,20 +24,18 @@ instructions below apply to those builds.
 Photos show an ESP-32U module on a development board with micro-USB, EN/BOOT buttons, USB-UART
 bridge, regulator and an IPEX/U.FL-style antenna socket. The USB-UART and regulator part markings,
 regulator current rating, exact antenna connector series, and flash size cannot be confirmed from
-the photos. GPIO16/RX2 and GPIO17/TX2 are the dual firmware UART pins. Match labels on the actual
-board; the diagram is not a physical header-order template. Power and program the board through its
-micro-USB input. Do not connect UNO 5 V to ESP32 GPIO or 3V3.
+the photos. Match the actual GPIO labels to the [Option C wiring diagram](../hardware/wiring.html#phone-admin)
+and power and program the board through its micro-USB input.
 
 The `huge_app.csv` partition table ends at `0x400000` (4 MB). This is a build configuration, not
 evidence that the photographed board has 4 MB flash. Verify capacity before any partition or
 filesystem write. Current build sizes (after running the commands below) should be recorded here;
 no physical board test is implied.
 
-The UNO and TFT are required in the Option A dual-controller profile. The alternate `esp32_solo`
-connects the TFT directly to ESP32 3.3 V GPIO; check the exact breakout's VCC and backlight
-requirements and do not infer its supply voltage from the ST7735 controller name.
-
 ## 2. Build, flash, monitor
+
+[Wire the TFT and microSD module and prepare the card](../firmware/phone_admin/README.md#prepare-the-card-and-flash)
+before first boot. Set private build credentials in your Bash shell:
 
 ```bash
 cd firmware
@@ -47,16 +45,9 @@ export SNTCH_AP_PASSWORD
 read -rsp "Private teacher PIN (8+ digits): " SNTCH_TEACHER_PIN
 echo
 export SNTCH_TEACHER_PIN
-# Option C is the default target; prepare its microSD card before use.
-pio run                                             # build Option C
-# pio run -t upload                                # upload Option C after setup
-# Option A is still available explicitly:
-pio run -e esp32_dual -e uno_display                 # compile selected pair
-pio run -e esp32_dual -t upload                      # ESP32 over board micro-USB
-pio run -e uno_display -t upload                     # UNO over USB-B
-pio run -e esp32_dual -t buildfs                     # build first-use LittleFS image
-# pio run -e esp32_dual -t uploadfs                  # confirmed blank board only; replaces LittleFS
-pio device monitor -b 115200       # serial diagnostics
+pio run
+pio run -t upload
+pio device monitor -b 115200
 ```
 
 PlatformIO defaults to `esp32_phone_admin` (Option C); it uses the generic `esp32dev` definition,
@@ -69,19 +60,8 @@ data before first use if the board may contain data written with a different par
 layout. Verify the photographed board has sufficient flash before upload. A full chip erase or
 `uploadfs` is not needed for normal reflashing and can erase classroom data.
 
-Options A and B (`esp32_dual` and `esp32_solo`) use LittleFS. Option C (`esp32_phone_admin`) stores
-classroom records on microSD, has no LittleFS fallback, and does not need `uploadfs`. For a confirmed
-blank Option A/B device, initialize LittleFS with
-`pio run -e esp32_dual -t uploadfs` or `pio run -e esp32_solo -t uploadfs`. The image contains
-`firmware/data/sntch_pending_init.txt` to
-authorize first-use initialization; the firmware writes an empty supported `/state.json`, commits
-`/sntch_initialized.txt`, then removes the pending marker. `uploadfs` replaces the filesystem
-partition and deletes any classroom files already there. A failed mount alone cannot tell a blank
-partition from corruption or a partition-layout mismatch, so firmware logs the failure and remains
-offline. Do not use `uploadfs` as a recovery attempt unless replacing the stored files is intentional.
-On an existing installation, a valid legacy `/state.json` is adopted by writing the marker without
-changing the classroom data. A missing state file with the installed marker, or a markerless
-filesystem containing other files, stops startup for manual inspection.
+Option C does not use `uploadfs` or migrate existing records from LittleFS. For Options A and B,
+follow their separate [build and storage instructions](DUAL_HARDWARE.md).
 
 ## 3. Configuration
 
@@ -89,7 +69,7 @@ All settings are build flags, overridable without editing code:
 
 | Flag | Default | Notes |
 |---|---|---|
-| `SNTCH_AP_SSID` | `SNTCH-EXAM` | matches the tested ESP32 and Uno reference setup |
+| `SNTCH_AP_SSID` | `SNTCH-EXAM` | local classroom Wi-Fi name |
 | `SNTCH_AP_PASSWORD` | required environment variable | private WPA2 password, minimum 8 characters |
 | `SNTCH_AP_CHANNEL` | `1` | 1–13; matches the tested ESP32 reference setup |
 | `SNTCH_AP_MAX_CLIENTS` | `10` | hardware ceiling for the ESP32 access point |
@@ -98,32 +78,19 @@ All settings are build flags, overridable without editing code:
 | `SNTCH_HTTP_PORT` | `80` | plain HTTP |
 | `SNTCH_SAVE_INTERVAL_MS` | `60000` | checkpoint while an exam is running |
 | `SNTCH_DIAG_INTERVAL_MS` | `30000` | serial diagnostics cadence |
-| `SNTCH_UNO_STATUS` | `1` | legacy `esp32wroom32d` read-only status target; `esp32_dual` and `esp32_solo` set this to `0` |
+| `SNTCH_UNO_STATUS` | `0` in Option C | the legacy `esp32wroom32d` target enables the one-way status link |
 | `SNTCH_UNO_BAUD` | `9600` | legacy status-link baud, 8N1 |
 | `SNTCH_UNO_TX_PIN` | `17` | legacy status-link UART2 TX; level-shift to Uno RX |
 | `SNTCH_UNO_RX_PIN` | `16` | legacy target only; unused for its one-way link |
 | `SNTCH_UNO_STATUS_INTERVAL_MS` | `2000` | legacy status-frame cadence |
-
-Set private values in the shell before building. PlatformIO reads them from the environment, so
-they are not stored in the repository:
-
-```bash
-read -rsp "Private AP password (8+ characters): " SNTCH_AP_PASSWORD
-echo
-export SNTCH_AP_PASSWORD
-read -rsp "Private teacher PIN (8+ digits): " SNTCH_TEACHER_PIN
-echo
-export SNTCH_TEACHER_PIN
-pio run -e esp32_dual -e uno_display
-```
 
 Use the same environment values for each firmware build and upload in that shell. Do not put the
 credentials in tracked build files or share the generated firmware image publicly.
 
 ### Legacy one-way Uno status link
 
-Only the legacy `esp32wroom32d` target and its matching reference sketch use this link. It is not
-the selected dual-controller protocol. The legacy Uno reference sketch can act as a read-only wall
+Only the legacy `esp32wroom32d` target and its matching reference sketch use this link. The legacy
+Uno reference sketch can act as a read-only wall
 display. The ESP32 transmits one line every
 two seconds on UART2 (GPIO17 TX, 9600 8N1); it never reads commands back. The line is ASCII, not
 JSON, so the nearly full Uno flash does not need a JSON parser:
@@ -147,7 +114,7 @@ Wiring is one-way and crosses voltage domains:
 | Uno TX (D1) | leave disconnected |
 
 Use a 3.3 V-to-5 V level shifter for the legacy target; do not feed Uno 5 V into the ESP32.
-The selected `esp32_dual` target instead uses framed, bidirectional UART2 with GPIO16/RX2 and
+The Option A `esp32_dual` target uses framed, bidirectional UART2 with GPIO16/RX2 and
 GPIO17/TX2, the UNO's A1/TX and A0/RX, and dedicated translators in both directions. See the
 [Option A wiring guide](DUAL_HARDWARE.md#option-a-alternative-version-a-dual-controller). The
 UNO's D0/D1 remain free for its USB connection.
@@ -155,19 +122,17 @@ UNO's D0/D1 remain free for its USB connection.
 
 ## 4. Boot and runtime behaviour
 
-1. Serial banner with firmware version.
-2. LittleFS mount without formatting; `/sub` and `/att` are created if missing (`/del` is created
-   on the first deletion backup).
-3. Classroom state loaded from `/state.json`. A pending marker from an explicitly uploaded fresh
-   filesystem authorizes creation of the initial state. A zero-byte,
-   malformed, unknown-version, or structurally incomplete state file stops startup without rewriting it.
-   A mount or load failure prevents the AP and API from starting.
+1. Log the firmware version and initialize the TFT and shared SPI bus.
+2. Mount the microSD card without formatting. Recover interrupted file replacements under `/sntch`.
+3. Load `/sntch/state.json`. On a new card, `/sntch/sntch_pending_init.txt` authorizes initial
+   state creation. A mount or load failure prevents the AP and API from starting, and the TFT
+   shows **MICROSD UNAVAILABLE**.
 4. Access point started, hostname `sntch`, IP `192.168.4.1`. If startup fails, the
    firmware reports an error and retries every 5 seconds; it does not print `ready` early.
-5. HTTP API started on port 80. Root `/` returns a short plain-text status.
+5. Start the HTTP API on port 80. The TFT shows the controller QR and manual address when ready;
+   it shows a student join QR and code when exactly one activity is live.
 6. Loop: serve HTTP, advance exam clocks, checkpoint every 60 s while an exam is in progress,
-   poll/serve framed UART2 requests in the dual target (or send a legacy status frame every 2 s
-   when enabled), and print diagnostics every 30 s (uptime, heap, associated clients, students,
+   refresh the TFT, and print diagnostics every 30 s (uptime, heap, associated clients, students,
    open sessions, submissions, storage use). Tokens, PINs
    and answer text never appear in logs.
 
@@ -179,7 +144,7 @@ capture is noisy.
 - Sessions that were `live` come back `paused` — nobody continues unsupervised work after a
   brownout.
 - In-progress attempts are restored with their last checkpointed remaining time.
-- Submissions already written to flash survive and keep their idempotency keys, so retries after
+- Submissions already written to the card survive and keep their idempotency keys, so retries after
   a restart return the original grade.
 - Pending deletions and their `/del/<sessionId>.json` backups survive, and the session stays hidden
   from students until the teacher app ACKs or cancels.
@@ -190,10 +155,11 @@ capture is noisy.
 | Condition | Behaviour |
 |---|---|
 | `/state.json` corrupt/incompatible | service does not start; serial log identifies the state load failure; file is preserved |
-| LittleFS mount fails | service does not start; firmware does not format the partition |
+| Card missing, mount fails, or `/sntch` is absent | service does not start; TFT reports **MICROSD UNAVAILABLE** |
 | Disk full mid-submission | submission file write fails → `500 STORAGE_FULL`, no partial summary recorded |
 | Disk full during delete backup | `/del/` write fails → `500 STORAGE_FULL`, the session is not queued |
-| Power loss during write | `*.tmp` + rename keeps the previous file intact |
+| Power loss during file replacement | the next mount reconciles `.sntch-new` and `.sntch-old` files; it cannot repair a corrupted FAT32 filesystem |
+| Card I/O fails while serving a class | the classroom service stops; check the card and restart |
 
 ## 5. Capacity: the honest number
 
@@ -232,6 +198,5 @@ check the PIN build flag.
 - OTA updates (flash over USB)
 - Real-time clock / internet time
 - mDNS discovery (the address is documented and configurable in the app)
-- Display integration
 - Multi-teacher accounts
 - Export endpoints

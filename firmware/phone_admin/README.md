@@ -23,7 +23,7 @@ Use common ground and confirmed 3.3 V logic. A separate level shifter is unneces
 ## Prepare the card and flash
 
 1. Use a blank FAT32 card. On the computer, create a folder named `sntch` in the card’s root. Copy [`sntch_pending_init.txt`](../data/sntch_pending_init.txt) into that folder as its only file: `/sntch/sntch_pending_init.txt`. This authorizes first-boot initialization. Safely eject the card and insert it with the ESP32 off.
-2. Set `SNTCH_AP_PASSWORD` (private WPA2 password, at least eight characters) and `SNTCH_TEACHER_PIN` (private PIN, at least eight digits) in your build environment.
+2. Set `SNTCH_AP_PASSWORD` (private WPA2 password, at least eight characters) and `SNTCH_TEACHER_PIN` (private PIN, at least eight digits) in your build environment. See the [shell commands](../../docs/FIRMWARE.md#2-build-flash-monitor).
 3. Confirm the board has at least 4 MB of flash. Option C is the PlatformIO default. From the repository root:
 
    ```sh
@@ -35,6 +35,6 @@ Use common ground and confirmed 3.3 V logic. A separate level shifter is unneces
 
 ## Use and verify
 
-1. Power up. Join the controller’s Wi-Fi from your phone and open the SNTCH app. Scan **Controller QR** or enter the displayed address (default `http://192.168.4.1`). Use the teacher PIN to sign in. Wi-Fi credentials and the PIN are set at build time.
+1. Power up. Join the controller’s Wi-Fi from your phone and open the SNTCH app. Enter the displayed address (default `http://192.168.4.1`) and sign in with the teacher PIN. The TFT emits a **Controller QR**, but scanning it requires a compatible app build.
 2. Start an activity in the app. With exactly one live activity, the TFT shows its student join QR. When that activity pauses or ends, the TFT shows the controller QR again. Use the app’s join codes for exams or when multiple activities are live. The manual address still works for teacher connection while the TFT shows a join QR.
 3. Create a test session or record, restart, and verify that it persists. The controller does not format the card. If the display reports **MICROSD UNAVAILABLE**, power off, check the card, then restart. Serial diagnostics at 115200 baud give more detail. There is no LittleFS fallback, and the card should not be removed while powered. The firmware can recover an interrupted file replacement, but it cannot repair a damaged FAT32 filesystem.

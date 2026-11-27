@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#10281D">
-  <meta name="description" content="Offline-first SNTCH setup and classroom user guide for the ESP32-WROOM-32D.">
+  <meta name="description" content="SNTCH Option C classroom guide: ESP32, TFT, and external microSD storage.">
   <title>SNTCH | Visual User Guide</title>
   <style>
     :root {
@@ -194,8 +194,8 @@
       <div>
         <div class="eyebrow">Offline-first classroom toolkit</div>
         <h1>Teach, practice<br>and assess locally.</h1>
-        <p>A practical setup and use guide for SNTCH on the ESP32-WROOM-32D. The controller hosts the class network and keeps supported class data on local flash.</p>
-        <div class="hero-tags"><span class="tag">ESP32-WROOM-32D</span><span class="tag">Android · Teacher + Student</span><span class="tag">Works without internet</span></div>
+        <p>Set up SNTCH Option C. The ESP-32U hosts the class network, the TFT shows connection details, and the external microSD stores classroom records.</p>
+        <div class="hero-tags"><span class="tag">Option C · ESP-32U + TFT + microSD</span><span class="tag">Android · Teacher + Student</span><span class="tag">Works without internet</span></div>
       </div>
       <div class="hero-visual">
         <svg viewBox="0 0 520 300" role="img" aria-labelledby="heroTitle heroDesc">
@@ -206,8 +206,8 @@
           <path d="M124 139 C192 91 329 91 397 139" fill="none" stroke="#34D399" stroke-width="2" opacity=".65"/>
           <g transform="translate(47 103)"><rect width="78" height="136" rx="13" fill="#F7FBF8"/><rect x="7" y="12" width="64" height="104" rx="5" fill="#DCECE2"/><circle cx="39" cy="126" r="4" fill="#14532D"/><rect x="18" y="31" width="42" height="8" rx="4" fill="#059669"/><rect x="18" y="49" width="31" height="5" rx="2" fill="#769482"/><rect x="18" y="61" width="38" height="5" rx="2" fill="#A4B9AA"/><text x="39" y="162" fill="#EAF8EF" font-size="11" font-weight="700" text-anchor="middle">TEACHER</text></g>
           <g transform="translate(397 103)"><rect width="78" height="136" rx="13" fill="#F7FBF8"/><rect x="7" y="12" width="64" height="104" rx="5" fill="#DCECE2"/><circle cx="39" cy="126" r="4" fill="#14532D"/><rect x="18" y="31" width="42" height="8" rx="4" fill="#059669"/><rect x="18" y="49" width="31" height="5" rx="2" fill="#769482"/><rect x="18" y="61" width="38" height="5" rx="2" fill="#A4B9AA"/><text x="39" y="162" fill="#EAF8EF" font-size="11" font-weight="700" text-anchor="middle">STUDENT</text></g>
-          <g transform="translate(183 156)"><rect width="154" height="77" rx="13" fill="#DCECE2" stroke="#34D399" stroke-width="2"/><rect x="12" y="14" width="35" height="48" rx="5" fill="#14532D"/><circle cx="29" cy="53" r="3" fill="#34D399"/><text x="58" y="30" fill="#10281D" font-size="13" font-weight="800">ESP32</text><text x="58" y="48" fill="#14532D" font-size="10">WROOM-32D</text><text x="58" y="64" fill="#587064" font-size="9">LOCAL API + WI-FI</text></g>
-          <g transform="translate(226 247)"><path d="M0 0h68v27a4 4 0 0 1-4 4h-60a4 4 0 0 1-4-4z" fill="#14532D" stroke="#34D399"/><text x="34" y="19" fill="#EAF8EF" font-size="10" font-weight="700" text-anchor="middle">LittleFS</text></g>
+          <g transform="translate(183 156)"><rect width="154" height="77" rx="13" fill="#DCECE2" stroke="#34D399" stroke-width="2"/><rect x="12" y="14" width="35" height="48" rx="5" fill="#14532D"/><circle cx="29" cy="53" r="3" fill="#34D399"/><text x="58" y="30" fill="#10281D" font-size="13" font-weight="800">ESP-32U</text><text x="58" y="48" fill="#14532D" font-size="10">OPTION C</text><text x="58" y="64" fill="#587064" font-size="9">LOCAL API + WI-FI</text></g>
+          <g transform="translate(226 247)"><path d="M0 0h68v27a4 4 0 0 1-4 4h-60a4 4 0 0 1-4-4z" fill="#14532D" stroke="#34D399"/><text x="34" y="19" fill="#EAF8EF" font-size="10" font-weight="700" text-anchor="middle">microSD</text></g>
           <text x="260" y="45" fill="#DDF6E6" font-size="12" font-weight="700" text-anchor="middle">SNTCH CLASSROOM WI-FI · LOCAL ONLY</text>
         </svg>
         <div class="hero-note">Schematic illustration · not a photograph of the board or app</div>
@@ -218,7 +218,7 @@
   <main>
     <div class="quickfacts" aria-label="Quick reference">
       <div class="fact"><strong>SNTCH-EXAM</strong><span>Wi-Fi network name</span></div>
-      <div class="fact"><strong>sntch-1234</strong><span>Current default Wi-Fi password</span></div>
+      <div class="fact"><strong>Private password</strong><span>Set when building the firmware</span></div>
       <div class="fact"><strong>192.168.4.1</strong><span>Controller address</span></div>
       <div class="fact"><strong>115200 baud</strong><span>Serial monitor speed</span></div>
     </div>
@@ -228,13 +228,13 @@
       <div class="grid-2">
         <article class="card">
           <h3>One local classroom network</h3>
-          <p>The ESP32-WROOM-32D creates its own Wi-Fi access point. The Android apps use the controller’s HTTP API for teacher and student tasks. Supported classroom state is saved on the controller’s LittleFS partition.</p>
-          <p class="small">Normal classroom use does not require internet, a cloud service, an external router, a PC server, or a Raspberry Pi. The Arduino Uno is not required for core SNTCH operation.</p>
+          <p>The ESP-32U creates its own Wi-Fi access point. The Android app talks to the controller over HTTP, and the controller saves classroom records on a FAT32 microSD card.</p>
+          <p class="small">The TFT starts automatically and shows connection details or the activity join code. Teacher controls are in the app. No internet or external router is required for classroom use.</p>
           <div class="checkline"><span class="check">Teacher tools</span><span class="check">Student participation</span><span class="check">Local persistence</span></div>
         </article>
         <figure class="diagram">
           <svg viewBox="0 0 720 310" role="img" aria-labelledby="archTitle archDesc">
-            <title id="archTitle">SNTCH local architecture</title><desc id="archDesc">Teacher and student Android devices connect by local Wi-Fi to an ESP32-WROOM-32D. LittleFS stores supported classroom data on the controller.</desc>
+            <title id="archTitle">SNTCH Option C architecture</title><desc id="archDesc">Teacher and student phones connect by local Wi-Fi to the ESP-32U. The controller drives the TFT and stores classroom records on microSD.</desc>
             <defs><marker id="arrowA" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0 0v6l9-3z" fill="#059669"/></marker></defs>
             <rect x="14" y="19" width="692" height="272" rx="18" fill="#F8FBF8"/>
             <g transform="translate(35 82)"><rect width="125" height="142" rx="14" fill="#fff" stroke="#BFD4C5" stroke-width="2"/><rect x="13" y="13" width="99" height="99" rx="8" fill="#DCECE2"/><circle cx="62" cy="126" r="5" fill="#14532D"/><text x="62" y="52" text-anchor="middle" fill="#14532D" font-size="14" font-weight="700">Teacher</text><text x="62" y="72" text-anchor="middle" fill="#587064" font-size="11">Android app</text><text x="62" y="92" text-anchor="middle" fill="#587064" font-size="10">Sessions · Results</text></g>
@@ -242,80 +242,79 @@
             <g transform="translate(35 236)"><rect width="125" height="42" rx="10" fill="#14532D"/><text x="62" y="18" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Student Android</text><text x="62" y="33" text-anchor="middle" fill="#DCECE2" font-size="10">local client</text></g>
             <path d="M164 126 C240 126 252 110 310 110" fill="none" stroke="#059669" stroke-width="3" marker-end="url(#arrowA)"/><path d="M164 258 C240 258 252 190 310 190" fill="none" stroke="#059669" stroke-width="3" marker-end="url(#arrowA)"/>
             <rect x="204" y="142" width="93" height="33" rx="16" fill="#DCECE2"/><text x="250" y="163" text-anchor="middle" fill="#14532D" font-size="11" font-weight="700">LOCAL Wi-Fi</text>
-            <g transform="translate(320 88)"><rect width="208" height="126" rx="17" fill="#10281D"/><rect x="18" y="21" width="44" height="82" rx="7" fill="#DCECE2"/><circle cx="40" cy="90" r="4" fill="#059669"/><text x="78" y="46" fill="#34D399" font-size="15" font-weight="800">ESP32-WROOM-32D</text><text x="78" y="68" fill="#EFF8F2" font-size="12">Wi-Fi access point</text><text x="78" y="88" fill="#EFF8F2" font-size="12">HTTP API · sessions</text><text x="78" y="106" fill="#BBD5C6" font-size="10">classic ESP32 · 4 MB flash</text></g>
+            <g transform="translate(320 88)"><rect width="208" height="126" rx="17" fill="#10281D"/><rect x="18" y="21" width="44" height="82" rx="7" fill="#DCECE2"/><circle cx="40" cy="90" r="4" fill="#059669"/><text x="78" y="46" fill="#34D399" font-size="15" font-weight="800">ESP-32U</text><text x="78" y="68" fill="#EFF8F2" font-size="12">Wi-Fi access point</text><text x="78" y="88" fill="#EFF8F2" font-size="12">HTTP API · sessions</text><text x="78" y="106" fill="#BBD5C6" font-size="10">TFT · QR and status</text></g>
             <path d="M530 151h35" stroke="#059669" stroke-width="3" marker-end="url(#arrowA)"/>
-            <g transform="translate(578 105)"><rect width="108" height="91" rx="13" fill="#E9F8F0" stroke="#8BC7A3" stroke-width="2"/><path d="M31 28h48v38H31z" fill="#14532D"/><path d="M43 21h24v7H43z" fill="#059669"/><text x="54" y="82" text-anchor="middle" fill="#14532D" font-size="11" font-weight="800">LittleFS</text></g>
+            <g transform="translate(578 105)"><rect width="108" height="91" rx="13" fill="#E9F8F0" stroke="#8BC7A3" stroke-width="2"/><path d="M31 28h48v38H31z" fill="#14532D"/><path d="M43 21h24v7H43z" fill="#059669"/><text x="54" y="82" text-anchor="middle" fill="#14532D" font-size="11" font-weight="800">FAT32 microSD</text></g>
             <text x="360" y="260" text-anchor="middle" fill="#587064" font-size="11">Local classroom data stays on the controller · no internet route is required</text>
           </svg>
-          <figcaption>Teacher Android ─┐ and Student Android ─┘ connect over local Wi-Fi to the WROOM controller and its LittleFS storage.</figcaption>
+          <figcaption>Teacher and student devices reach the ESP-32U over local Wi-Fi. The ESP-32U writes records to its external microSD card.</figcaption>
         </figure>
       </div>
     </section>
 
     <section id="hardware">
-      <div class="section-head"><div class="section-num">02</div><div><h2>Hardware and connections</h2><p>The classroom system needs the controller and Android devices. The display and buttons are optional peripherals.</p></div></div>
+      <div class="section-head"><div class="section-num">02</div><div><h2>Hardware and connections</h2><p>Option C uses one ESP32, one TFT, and an external SPI microSD module.</p></div></div>
       <div class="grid-2">
         <article class="card">
           <h3>Core hardware</h3>
           <ul>
-            <li>ESP32-WROOM-32D module on a compatible development carrier with USB/UART.</li>
+            <li>ESP-32U development board with a compatible antenna for its RF connector.</li>
+            <li>ST7735 SPI TFT, external SPI microSD module, and a prepared FAT32 card.</li>
             <li>A suitable USB cable and stable USB power from a computer or power adapter.</li>
             <li>Teacher Android phone/tablet and student Android device(s).</li>
           </ul>
           <p>The exact carrier-board model is not identified. Confirm the board marking, USB connector, and header labels before wiring or flashing.</p>
-          <div class="callout"><span class="call-icon">i</span><p><strong>The Uno link is optional and one-way.</strong>The firmware can transmit a read-only status line to the supplied Uno sketch every 2 s on UART2 TX (GPIO17) at 9600 8N1, so the Uno can act as a wall display. The ESP32 never reads from the Uno and the Uno cannot change sessions, grades or settings; nothing about class use depends on it. The Uno R3 is 5 V, so a 3.3 V-to-5 V level shifter and a common ground are required, and Uno D1/TX stays disconnected. This wiring has not been tested on hardware.</p></div>
+          <div class="callout"><span class="call-icon">i</span><p><strong>Phones handle classroom controls.</strong>Option C has no UNO or panel buttons. Open the <a href="../hardware/wiring.html#phone-admin">interactive Option C wiring diagram</a> for the exact signal labels.</p></div>
         </article>
         <figure class="diagram">
           <svg viewBox="0 0 650 280" role="img" aria-labelledby="boardTitle boardDesc">
-            <title id="boardTitle">Schematic of a WROOM development carrier</title><desc id="boardDesc">A generic ESP32-WROOM development carrier connects by USB power to a laptop and exposes GPIO pins for the optional separate TFT test. This is not a specific board layout.</desc>
+            <title id="boardTitle">Option C hardware schematic</title><desc id="boardDesc">The USB-powered ESP-32U connects to the TFT and an external SPI microSD module. This is not a physical header layout.</desc>
             <rect x="18" y="20" width="614" height="240" rx="16" fill="#F8FBF8"/>
             <path d="M130 95h390a20 20 0 0 1 20 20v89a20 20 0 0 1-20 20H130a20 20 0 0 1-20-20v-89a20 20 0 0 1 20-20z" fill="#14532D"/>
             <rect x="62" y="137" width="48" height="38" rx="7" fill="#597966" stroke="#10281D" stroke-width="3"/><text x="86" y="160" fill="#fff" font-size="9" text-anchor="middle">USB</text>
-            <rect x="218" y="115" width="183" height="93" rx="11" fill="#10281D" stroke="#34D399" stroke-width="2"/><text x="309" y="151" fill="#34D399" font-size="17" font-weight="800" text-anchor="middle">ESP32-WROOM-32D</text><text x="309" y="176" fill="#E8F5EC" font-size="11" text-anchor="middle">classic ESP32 module</text>
+            <rect x="218" y="115" width="183" height="93" rx="11" fill="#10281D" stroke="#34D399" stroke-width="2"/><text x="309" y="151" fill="#34D399" font-size="17" font-weight="800" text-anchor="middle">ESP-32U</text><text x="309" y="176" fill="#E8F5EC" font-size="11" text-anchor="middle">Option C controller</text>
             <g fill="#DCECE2"><circle cx="141" cy="111" r="4"/><circle cx="141" cy="133" r="4"/><circle cx="141" cy="155" r="4"/><circle cx="141" cy="177" r="4"/><circle cx="141" cy="199" r="4"/><circle cx="507" cy="111" r="4"/><circle cx="507" cy="133" r="4"/><circle cx="507" cy="155" r="4"/><circle cx="507" cy="177" r="4"/><circle cx="507" cy="199" r="4"/></g>
             <path d="M39 159H62" stroke="#059669" stroke-width="3"/><text x="50" y="129" fill="#14532D" font-size="11" text-anchor="middle">USB power</text>
-            <path d="M518 114h75v-32" stroke="#059669" stroke-width="2" fill="none"/><text x="595" y="69" fill="#14532D" font-size="11" text-anchor="middle">Optional TFT</text><text x="595" y="84" fill="#587064" font-size="9" text-anchor="middle">separate test sketch</text>
-            <path d="M518 198h75v25" stroke="#059669" stroke-width="2" fill="none"/><text x="587" y="245" fill="#587064" font-size="10" text-anchor="middle">Buttons to GND</text>
+            <path d="M518 114h75v-32" stroke="#059669" stroke-width="2" fill="none"/><text x="595" y="69" fill="#14532D" font-size="11" text-anchor="middle">SPI TFT</text>
+            <path d="M518 198h75v25" stroke="#059669" stroke-width="2" fill="none"/><text x="587" y="245" fill="#14532D" font-size="10" text-anchor="middle">SPI microSD</text>
             <text x="325" y="48" fill="#14532D" font-size="13" font-weight="800" text-anchor="middle">GENERIC CARRIER SCHEMATIC · NOT TO SCALE</text>
           </svg>
           <figcaption>Illustration shows functional connections only. Use the pin labels on your exact carrier board.</figcaption>
         </figure>
       </div>
       <div class="card" style="margin-top:1rem">
-        <h3>Optional WROOM TFT/button smoke test</h3>
-        <p>This separate sketch checks an ST7735 1.8-inch SPI display and four physical buttons. It does not add a display to the SNTCH classroom firmware or link the display to class sessions.</p>
-        <div class="table-wrap"><table><thead><tr><th>Signal</th><th>WROOM GPIO</th><th>Connection note</th></tr></thead><tbody>
-          <tr><td>TFT SCK / MOSI</td><td><code>18 / 23</code></td><td>SPI clock and display data</td></tr>
+        <h3>TFT and microSD pin map</h3>
+        <p>Connect the external card module with power disconnected. Use the GPIO labels printed on the ESP32 board.</p>
+        <div class="table-wrap"><table><thead><tr><th>Signal</th><th>ESP32 GPIO</th><th>Connection note</th></tr></thead><tbody>
+          <tr><td>TFT + microSD SCK / MOSI</td><td><code>18 / 23</code></td><td>Both peripherals share the SPI clock and data-out line</td></tr>
           <tr><td>TFT CS / DC / reset</td><td><code>22 / 21 / 17</code></td><td>Chip select, command/data, reset</td></tr>
-          <tr><td>TFT MISO</td><td>Not connected</td><td>Display-only writes</td></tr>
-          <tr><td>Select / Back / Left / Right</td><td><code>32 / 33 / 25 / 26</code></td><td>Each button connects GPIO to GND; inputs use <code>INPUT_PULLUP</code></td></tr>
+          <tr><td>microSD MISO (DO) / CS</td><td><code>19 / 27</code></td><td>Card-to-ESP32 data and separate card chip select</td></tr>
+          <tr><td>GND / VCC</td><td>Common ground / verified supply</td><td>Use the ESP32’s 3V3 output only if the modules accept it and the regulator can supply both.</td></tr>
         </tbody></table></div>
         <div class="callout danger"><span class="call-icon">!</span><p><strong>Check voltage before connecting the display.</strong>ESP32 GPIO is 3.3 V. The exact TFT breakout’s VCC and backlight circuitry are unknown; check its labels/schematic and logic compatibility. Avoid GPIO6–11 (module flash) and GPIO12 (boot strapping) for this map.</p></div>
-        <p class="small">Build this peripheral sketch from <code>firmware/esp32_wroom32d_tft_buttons/</code> with <code>pio run</code>. It is an optional hardware test, separate from <code>firmware/src/main.ino</code>.</p>
+        <p class="small">The write-only TFT has no MISO wire. See the <a href="../firmware/phone_admin/README.md#wire-the-board">Option C setup guide</a> for the full power notes.</p>
       </div>
     </section>
 
     <section id="setup">
-      <div class="section-head"><div class="section-num">03</div><div><h2>First-time firmware setup</h2><p>Build and flash the WROOM target explicitly. Confirm board markings before uploading.</p></div></div>
+      <div class="section-head"><div class="section-num">03</div><div><h2>First-time firmware setup</h2><p>Prepare the card and flash the default Option C firmware.</p></div></div>
       <div class="step-list">
         <article class="step"><div><h3>Open the firmware project</h3><p>Use a terminal in this repository, then move into <code>firmware/</code>. Install PlatformIO Core and allow it to download the Espressif Arduino framework and toolchain on the first build.</p><pre class="cmd"><code>cd firmware</code></pre></div></article>
-        <article class="step"><div><h3>Build for the WROOM-32D</h3><p>The default environment is <code>esp32wroom32d</code>, board ID <code>esp32dev</code>. Build the application:</p><pre class="cmd"><code>pio run -e esp32wroom32d</code></pre></div></article>
-        <article class="step"><div><h3>Initialize LittleFS only for a confirmed fresh installation</h3><p>For a new device with no classroom files to preserve, make the image and write it once:</p><pre class="cmd"><code>pio run -e esp32wroom32d -t buildfs
-pio run -e esp32wroom32d -t uploadfs</code></pre><p>The image carries a pending first-use marker; on boot, SNTCH writes its initial supported state and commits the installed marker.</p></div></article>
-        <article class="step"><div><h3>Upload the firmware</h3><p>Connect the confirmed WROOM carrier over USB, choose its serial port if prompted, then flash the application:</p><pre class="cmd"><code>pio run -e esp32wroom32d -t upload</code></pre></div></article>
-        <article class="step"><div><h3>Read startup logs</h3><p>Open the serial monitor at the configured 115200 baud:</p><pre class="cmd"><code>pio device monitor -b 115200</code></pre><p>Look for LittleFS mounted, classroom state loaded/initialized, access point up, HTTP API listening, and the final ready message.</p></div></article>
+        <article class="step"><div><h3>Prepare the microSD card</h3><p>On a blank FAT32 card, create a folder named <code>sntch</code>. Copy <a href="../firmware/data/sntch_pending_init.txt"><code>sntch_pending_init.txt</code></a> into that folder. Insert the card with the controller off. Keep existing classroom cards intact.</p></div></article>
+        <article class="step"><div><h3>Build and upload Option C</h3><p>Set the <a href="FIRMWARE.md#2-build-flash-monitor">private Wi-Fi password and teacher PIN</a>, confirm the board has at least 4 MB of flash, and connect it with a USB data cable:</p><pre class="cmd"><code>pio run
+pio run -t upload</code></pre></div></article>
+        <article class="step"><div><h3>Check startup</h3><p>Open the serial monitor and look for the microSD mount, classroom state load, Wi-Fi startup, and service readiness. The TFT shows the connection details when ready.</p><pre class="cmd"><code>pio device monitor -b 115200</code></pre></div></article>
       </div>
-      <div class="callout danger"><span class="call-icon">!</span><p><strong>Do not run <code>uploadfs</code> as routine troubleshooting.</strong>It replaces the filesystem partition and erases stored classroom files. A mount failure is ambiguous, so firmware never formats automatically. If this board has valuable data, stop at a storage error and preserve/inspect it before considering any filesystem write or full flash erase.</p></div>
-      <div class="callout success"><span class="call-icon">✓</span><p><strong>Existing valid SNTCH state is kept.</strong>Normal application upload does not ask the firmware to format LittleFS. Valid legacy state can receive an initialization marker without changing the classroom state format.</p></div>
+      <div class="callout"><span class="call-icon">i</span><p><strong>No <code>uploadfs</code> step is needed.</strong>Option C uses the external card directly. Flashing Option C does not copy records from an earlier build’s internal storage.</p></div>
     </section>
 
     <section id="connect">
       <div class="section-head"><div class="section-num">04</div><div><h2>Connect the Android app</h2><p>Join the controller’s network even if Android reports that it has no internet.</p></div></div>
       <div class="workflow" aria-label="Connectivity checks from Wi-Fi to application">
-        <div class="flow-step"><b>1 · Join Wi-Fi</b><span>SSID <code>SNTCH-EXAM</code><br>Password <code>sntch-1234</code></span></div>
+        <div class="flow-step"><b>1 · Join Wi-Fi</b><span>SSID <code>SNTCH-EXAM</code><br>Use the password set at build time.</span></div>
         <div class="flow-step"><b>2 · Check the address</b><span>Open <code>http://192.168.4.1/</code> on the connected phone.</span></div>
         <div class="flow-step"><b>3 · Check HTTP API</b><span>Visit <code>/api/health</code> and inspect the JSON response.</span></div>
-        <div class="flow-step"><b>4 · Test in the app</b><span>Use the app’s address field and <b>Test</b> control.</span></div>
+        <div class="flow-step"><b>4 · Test in the app</b><span>Enter the TFT address and tap <b>Test</b>. This app build uses manual entry.</span></div>
       </div>
       <div class="grid-2">
         <article class="card"><h3>Expected health response</h3><pre><code>{
@@ -344,7 +343,7 @@ pio run -e esp32wroom32d -t uploadfs</code></pre><p>The image carries a pending 
           <h3>Run a class</h3>
           <ol>
             <li>Connect to <code>SNTCH-EXAM</code>. Open SNTCH, choose <strong>Teacher</strong>, check the controller address, and tap <strong>Test</strong>.</li>
-            <li>Sign in with the teacher PIN configured in the firmware build. The current source default is <code>246810</code>; change it before a real class.</li>
+            <li>Sign in with the private teacher PIN configured when the firmware was built.</li>
             <li>Open <strong>Students</strong> and add roster lines as <code>number, name, section</code>. Importing an existing number updates that student.</li>
             <li>Create an activity or examination, then publish it. Sessions are opened for published items.</li>
             <li>Open <strong>Sessions</strong>, create a session, choose a duration if shown, and start it. Share the session code with students.</li>
@@ -362,7 +361,7 @@ pio run -e esp32wroom32d -t uploadfs</code></pre><p>The image carries a pending 
       <div class="section-head"><div class="section-num">06</div><div><h2>Student workflow</h2><p>Join the active session, complete open work, and submit once.</p></div></div>
       <div class="workflow" aria-label="Student sequence from Wi-Fi connection to submission">
         <div class="flow-step"><b>Connect</b><span>Join the controller Wi-Fi; remain connected without internet.</span></div>
-        <div class="flow-step"><b>Join</b><span>Choose Student, check the session code, enter the student number.</span></div>
+        <div class="flow-step"><b>Join</b><span>Enter the teacher’s session code and your student number. The TFT shows the code for a single live activity.</span></div>
         <div class="flow-step"><b>Participate</b><span>Open available activity or examination from Home.</span></div>
         <div class="flow-step"><b>Submit</b><span>Send the response; check submission/result status.</span></div>
       </div>
@@ -380,50 +379,49 @@ pio run -e esp32wroom32d -t uploadfs</code></pre><p>The image carries a pending 
         <div class="storage-flow" aria-label="Local data handling path">
           <div class="storage-node"><strong>Teacher / student actions</strong><span>roster · sessions · work</span></div><div class="storage-arrow" aria-hidden="true">→</div>
           <div class="storage-node"><strong>SNTCH core</strong><span>validates and updates state</span></div><div class="storage-arrow" aria-hidden="true">→</div>
-          <div class="storage-node"><strong>LittleFS</strong><span><code>state.json</code>, <code>/sub</code>, <code>/att</code></span></div>
+          <div class="storage-node"><strong>FAT32 microSD</strong><span><code>/sntch/state.json</code> and record files</span></div>
         </div>
         <div class="grid-2" style="margin-top:1rem">
           <div><h3>What survives</h3><p>Supported classroom state, roster, sessions, attendance, activities/exams, submissions, and saved exam work are stored locally. On restart, a live session is restored as paused. Authentication tokens are RAM-only, so teacher sign-in and student rejoin may be needed.</p></div>
-          <div><h3>How startup decides</h3><p>A pending marker in an explicitly uploaded fresh filesystem allows first state creation. An installed marker with a missing state is treated as data loss and blocks startup. Valid old SNTCH state without a marker can be adopted in place. A malformed or unsupported state is preserved and rejected.</p></div>
+          <div><h3>How startup decides</h3><p>The pending marker on a new card allows first state creation. A missing or unusable card, or missing state on an initialized card, blocks the classroom service. There is no internal-storage fallback.</p></div>
         </div>
         <h3 style="margin-top:1rem">Deleting a session is a two-step handover</h3>
-        <p>Deleting a session moves it out of the class without throwing it away first. The controller writes a copy of that session to <code>/del/&lt;id&gt;.json</code> and marks it <em>pending deletion</em>; students can no longer join or see it. The teacher app downloads the copy, saves it on the phone under <code>files/session-backups/</code>, and only then sends the confirmation that removes the controller copy.</p>
+        <p>Deleting a session moves it out of the class without throwing it away first. The controller writes a copy to <code>/sntch/del/&lt;id&gt;.json</code> on the card and marks it <em>pending deletion</em>. The teacher app saves that copy under <code>files/session-backups/</code> on the phone before confirming deletion.</p>
         <p class="small">If the phone cannot save the backup, it does not confirm, so the session stays pending with its server-side copy intact. Pending deletions survive a restart and keep the session hidden from students until a phone completes or cancels the handover, and the phone keeps its own backup after confirmation as the teacher’s copy.</p>
-        <div class="callout danger"><span class="call-icon">!</span><p><strong>Storage error? Stop before writing a filesystem image.</strong>Do not use <code>uploadfs</code>, formatting, or chip erase to “try a fix.” These can replace saved class files. Record serial logs, keep power stable, and back up or inspect the device using a data-preserving method before recovery.</p></div>
+        <div class="callout danger"><span class="call-icon">!</span><p><strong>Storage error?</strong>Save the serial log, power off before removing the card, and back up the card before attempting recovery. The firmware does not format it.</p></div>
       </div>
     </section>
 
     <section id="troubleshoot">
       <div class="section-head"><div class="section-num">08</div><div><h2>Troubleshooting</h2><p>Use checks that preserve stored data first.</p></div></div>
       <div class="table-scroll"><div class="table-wrap"><table class="trouble"><thead><tr><th>Symptom</th><th>Safe checks</th><th>Next step</th></tr></thead><tbody>
-        <tr><td>Wi-Fi name does not appear</td><td>Confirm the WROOM carrier is powered; read serial at 115200 for AP startup errors. Verify the board is the classic ESP32 target.</td><td>Try a known data-capable USB cable and stable power. Rebuild/upload <code>esp32wroom32d</code> only after confirming the carrier.</td></tr>
+        <tr><td>Wi-Fi name does not appear</td><td>Confirm USB power and check the TFT and serial log for storage or Wi-Fi startup errors.</td><td>If storage failed, power off and check the SD module wires and card before retrying.</td></tr>
         <tr><td>Phone cannot stay connected</td><td>Choose “stay connected” to the no-internet network. Check SSID and password, and move closer to the controller.</td><td>Reconnect manually in Android Wi-Fi settings; SNTCH does not auto-join networks.</td></tr>
         <tr><td><code>/api/health</code> will not respond</td><td>Confirm phone is on SNTCH Wi-Fi, URL is <code>http://192.168.4.1/api/health</code>, and serial shows “HTTP API listening”.</td><td>If AP is up but listener is not, save the log and restart once. Do not erase flash.</td></tr>
         <tr><td>Health works, app cannot connect</td><td>Use the app address <code>http://192.168.4.1</code>, tap Test, and check for a reconnect banner. Avoid an extra trailing path.</td><td>Verify the app has network access and is still on the controller Wi-Fi; health alone does not prove every route.</td></tr>
         <tr><td>Teacher login or request fails</td><td>Confirm the configured teacher PIN and that the controller is ready. Check the app’s displayed error and current session state.</td><td>Use the PIN value compiled into this firmware; change it only through a planned rebuild.</td></tr>
         <tr><td>Student cannot join or submit</td><td>Check the session code, student number/roster, section target, and whether the teacher started or paused/ended the session.</td><td>Ask the teacher to verify session status. Rejoin after Wi-Fi returns; drafts are retained locally by the app.</td></tr>
         <tr><td>A deleted session still appears as pending</td><td>The teacher phone has not finished the handover, so the controller is correctly holding the session copy in <code>/del</code>. Check the phone is on SNTCH Wi-Fi and the app is signed in.</td><td>Open the teacher app and let it complete or cancel the pending deletion. Do not upload a filesystem image or erase flash to clear it.</td></tr>
-        <tr><td>Saved classroom state will not load</td><td>Photograph/copy serial error text and stop repeated uploads. Keep the controller powered and do not run <code>uploadfs</code> or erase.</td><td>Preserve existing flash data and ask for data-safe recovery help. Formatting is not a diagnostic step.</td></tr>
-        <tr><td>TFT is blank</td><td>This tests the separate WROOM peripheral sketch only. Verify display orientation/tab option, SPI wiring, GND, VCC, backlight, and exact breakout requirements.</td><td>Recheck GPIO 18/23/22/21/17 and display voltage compatibility before reconnecting power.</td></tr>
-        <tr><td>Buttons do not respond</td><td>Check each switch goes from GPIO to GND, correct pin map 32/33/25/26, and inputs use pull-ups.</td><td>Try one button at a time with the peripheral test loaded; do not wire a 5 V signal into ESP32 GPIO.</td></tr>
-        <tr><td>Firmware upload fails</td><td>Confirm carrier board and serial port, close serial monitor, use USB data cable, and select environment <code>esp32wroom32d</code>.</td><td>Retry a normal application upload. Avoid full-chip erase; inspect boot/reset guidance for the confirmed carrier.</td></tr>
+        <tr><td>MICROSD UNAVAILABLE or state won’t load</td><td>Check serial for the card mount, <code>/sntch</code> directory, or state error.</td><td>Power off before checking the module and card. Back up any existing records before recovery.</td></tr>
+        <tr><td>TFT is blank</td><td>Verify SPI wiring, GND, VCC, backlight, and the display’s initialization settings.</td><td>Recheck GPIO 18/23/22/21/17 and breakout voltage compatibility with power off.</td></tr>
+        <tr><td>Firmware upload fails</td><td>Confirm the board and serial port, close the serial monitor, and use a USB data cable.</td><td>Retry a normal application upload with the default <code>esp32_phone_admin</code> environment.</td></tr>
       </tbody></table></div></div>
     </section>
 
     <section id="verification">
       <div class="section-head"><div class="section-num">09</div><div><h2>What is verified</h2><p>Software checks and physical classroom checks are different kinds of evidence.</p></div></div>
       <div class="status-grid">
-        <div class="status-card"><b>Firmware build</b><span>PlatformIO WROOM-32D target builds for <code>esp32dev</code>; a successful build does not verify a board.</span></div>
+        <div class="status-card"><b>Firmware build</b><span>Option C builds for <code>esp32dev</code>; host checks simulate the microSD and TFT.</span></div>
         <div class="status-card"><b>Portable + HTTP tests</b><span>Native core tests and host HTTP/restart integration tests exercise the shared logic over simulated storage/network transport.</span></div>
         <div class="status-card"><b>Android JVM tests</b><span>App data/API behavior is tested against a loopback HTTP server; this is not Android-to-ESP32 hardware testing.</span></div>
         <div class="status-card"><b>Physical verification</b><span>No claim is made here that the board was flashed, the TFT wired, or a full phone-to-controller class workflow completed.</span></div>
       </div>
-      <div class="callout"><span class="call-icon">i</span><p><strong>Before a real class:</strong> confirm the carrier/module marking, upload the WROOM target, inspect serial logs, connect two Android devices, test health, teacher sign-in, student join, submission/results, and restart recovery.</p></div>
+      <div class="callout"><span class="call-icon">i</span><p><strong>Before a real class:</strong> verify card startup and TFT output, connect two phones, test teacher sign-in and student submission, then restart and confirm the saved work is still available.</p></div>
     </section>
   </main>
 
   <footer>
-    <div class="footer-inner"><div><strong>SNTCH · ESP32-WROOM-32D guide</strong><br><span class="small" style="color:#BBD5C6">Local-first classroom tools · guide works offline</span></div><div class="foot-links"><a href="SNTCH_USER_GUIDE.md">Markdown version</a><a href="../README.md">Project README</a><a href="FIRMWARE.md">Firmware notes</a><a href="TESTING.md">Testing checklist</a></div></div>
+    <div class="footer-inner"><div><strong>SNTCH · Option C guide</strong><br><span class="small" style="color:#BBD5C6">Local-first classroom tools · guide works offline</span></div><div class="foot-links"><a href="SNTCH_USER_GUIDE.md">Markdown version</a><a href="../README.md">Project README</a><a href="FIRMWARE.md">Firmware notes</a><a href="TESTING.md">Testing checklist</a></div></div>
   </footer>
 </body>
 </html>

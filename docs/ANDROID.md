@@ -111,8 +111,8 @@ repository, the repository calls `SntchApi`.
 | Segmented attendance control | `SelectChip` row per student |
 | Exam screen with timer, progress, review | `ExamTaking` composable with server-owned clock |
 | Student bottom nav | Material 3 `NavigationBar` |
-| Dashboard stat tiles and device card | `StatTile`, controller card with storage bar |
-| QR scan | removed — no camera, no fake scanner |
+| Dashboard stat tiles and device card | `StatTile`, controller card with 64-bit storage byte counts for Option C microSD |
+| QR scan | the checked-in app uses the address or join code shown on the TFT |
 
 Typography uses the platform sans family with the prototype's weights and a monospace face for
 codes, times and scores. The prototype's Google fonts are not bundled to keep the app fully

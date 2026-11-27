@@ -4,7 +4,7 @@
 
 ```
             ┌────────────────────────────┐
-            │   ESP32 (S3 or WROOM-32D) │
+            │  ESP-32U · Option C         │
             │  SNTCH-EXAM access point   │
             │  192.168.4.1 : 80          │
             │                            │
@@ -13,7 +13,8 @@
             │   ├ validation + auth      │
             │   ├ HTTP/JSON router       │
             │   └ storage interface      │
-            │  LittleFS  ── flash        │
+            │  SPI → FAT32 microSD       │
+            │  SPI → TFT (QR / status)   │
             └───────────┬────────────────┘
                         │ Wi-Fi (no internet)
         ┌───────────────┴───────────────┐
@@ -36,7 +37,8 @@ tested on a PC without a second implementation drifting from the firmware.
 |---|---|
 | `firmware/lib/sntch_core` | Roster, activities, examinations, grading, sessions, attendance, tokens, idempotency, persistence format. Portable C++11, no Arduino/ESP-IDF calls. |
 | `firmware/lib/sntch_core/api` | Request → auth → validation → domain call → JSON envelope. The only protocol implementation. |
-| `firmware/src` (Arduino glue) | Wi-Fi AP, `WebServer` adapter, LittleFS `Storage`, monotonic 64-bit uptime, serial diagnostics, periodic checkpoints. |
+| `firmware/src` (Arduino glue) | Wi-Fi AP, `WebServer` adapter, selected storage and panel, monotonic uptime, serial diagnostics, periodic checkpoints. |
+| `firmware/phone_admin` (Option C) | Drives the TFT and mounts the external SPI microSD card. Both peripherals share SCK and MOSI and have separate chip selects. |
 | `android/.../data` | `SntchApi` (HttpURLConnection, 4 s connect / 8 s read), typed models, repositories, local drafts. |
 | `android/.../ui` | Forest Tech Compose theme, teacher console, student app, role gate. Presentation only; all actions go through repositories. |
 | `tools/host_sim` | Serves the core over TCP for E2E and manual Android testing. Single-threaded, not a production server. |
@@ -47,7 +49,9 @@ tested on a PC without a second implementation drifting from the firmware.
 src/main.ino             boot order, loop, checkpoint cadence, diagnostics
 src/access_point.*       WPA2 AP, max clients, IP/hostname
 src/api_server.*         HTTP <-> core adapter; no protocol logic
-src/littlefs_storage.*   atomic file writes, directory bootstrap
+phone_admin/sd_storage.* FAT32 card mount and file replacement recovery
+phone_admin/phone_admin_panel.*  TFT startup, status and QR display
+src/littlefs_storage.*   internal-flash storage for alternate builds
 src/uptime.h             millis() wrap-safe 64-bit clock
 lib/sntch_core/json.*    bounded JSON parser/writer (depth 8, 2048 nodes)
 lib/sntch_core/classroom.*  domain + persistence
@@ -72,21 +76,21 @@ lib/sntch_core/api.*     routes, auth, rate limit, envelopes
    is duration-based; attempt clocks are stopwatches. Attendance dates come from the teacher
    app's clock as plain `YYYY-MM-DD` strings. Absolute "opens at / due at" fields from the
    prototype were deliberately dropped rather than faked.
-5. **RAM index, flash bodies.** Session snapshots stay small: submissions and in-progress
-   answer sets live in `/sub/` and `/att/` files, and the in-RAM record holds only the summary.
-   That keeps a 50-student roster within the available ESP32 heap (the S3 build uses 14% of
-   320 KB).
+5. **RAM index, card files.** Session snapshots stay small: submission bodies and in-progress
+   answers live in `/sntch/sub/` and `/sntch/att/` on the card. The in-RAM record holds the summary.
 6. **Idempotency before gating.** Submitting twice returns the first submission with
    `"duplicate": true` and HTTP 200, even if the attempt was lost or the session has since
    ended. Retrying after a dropped response can never create a second record.
 7. **Single APK, role gate.** One Android app; the role is a local preference. Teachers
    authenticate with a device PIN, students with a session code plus roster number. The device
    firmware is identical either way.
-8. **Storage behind an interface.** `Storage` has a LittleFS implementation for the board and
-   an in-memory/file implementation for tests, which is what makes corruption, full-disk and
-   restart behaviour testable.
+8. **Storage behind an interface.** Option C uses `SdStorage` and does not fall back to LittleFS.
+   Options A/B use LittleFS; the host tests use simulated storage. The same classroom core runs
+   on all of them.
 
 ## 4. Data ownership
+
+Controller paths below are relative to `/sntch` on the Option C microSD card.
 
 | Data | Owner | Persisted | Survives restart |
 |---|---|---|---|
@@ -140,9 +144,9 @@ students) but is not enforced by the data model.
 | Prototype | V1 | Reason |
 |---|---|---|
 | Simulated device status and fake joins | real controller state | simulation removed |
-| `localStorage` persistence | LittleFS + repositories | device-side durability |
+| `localStorage` persistence | FAT32 microSD + phone repositories | controller records and phone-local drafts |
 | Scheduled open/due timestamps | draft → published → session start/pause/end | no RTC on the controller |
-| QR scan screen | typed session code | no camera permission or QR dependency; a decorative scanner would be dishonest |
+| QR scan screen | TFT displays QR; checked-in app uses manual entry | use a compatible app build to scan a displayed QR |
 | "2 attempts (planned)" | one attempt per exam | not implemented |
 | CSV export dialog | not implemented | no export endpoint; button removed rather than left decorative |
 | Teacher directory / add teacher | single teacher PIN | multi-teacher permissions are a V2 concern |

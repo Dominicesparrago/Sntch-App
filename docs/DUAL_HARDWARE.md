@@ -1,6 +1,6 @@
-# SNTCH hardware wiring and bench build
+# SNTCH alternate hardware builds — Options A and B
 
-Open [the interactive wiring blueprint](../hardware/wiring.html) in a browser. The [supplied TFT preview](../hardware/SNTCH_Hardware_Faces_UI_Preview.html) is preserved unchanged; the blueprint embeds a separate simulation. `hardware/config.json` is the source for the firmware pin constants, wiring diagram and simulated hold timings. After changing it or the reference artwork, run `node tools/generate_panel.mjs`; review the netlist and rerun checks before building.
+For the default ESP32 + microSD build, use the [Option C setup guide](../firmware/phone_admin/README.md). Select [Option A](../hardware/wiring.html#dual-controller) or [Option B](../hardware/wiring.html#esp32-only) in the interactive diagram for these alternate builds. `hardware/config.json` is the source for the firmware pin constants, wiring diagram, and simulated hold timings. After changing it or the reference artwork, run `node tools/generate_panel.mjs`.
 
 ## Option A alternative: Version A dual-controller
 
@@ -29,8 +29,7 @@ actual board; the diagram is not a physical scale template.
 | ESP board U.FL/IPEX socket | Compatible 2.4 GHz, 50 Ω antenna | RF only—not GPIO or power |
 
 UNO buttons remain on D2–D5. A0/A1 are UART pins; D0/D1 stay free for UNO USB. GPIO16/17 UART2
-remain separate from the board’s USB programming UART0. No TFT or buttons connect to the ESP32 in
-the selected profile.
+remain separate from the board’s USB programming UART0. In Option A, the TFT and buttons connect to the UNO.
 
 ### Version A bill of materials
 
@@ -83,7 +82,7 @@ pio run -d firmware -e esp32_solo
 pio run -d firmware -e esp32_solo -t upload --upload-port YOUR_ESP_USB_OR_UART0_PORT
 ```
 
-For a **confirmed blank board only**, initialize LittleFS with `pio run -d firmware -e esp32_solo -t uploadfs --upload-port YOUR_ESP_USB_OR_UART0_PORT`. It replaces the filesystem; do not run it when classroom data must be kept. Set the AP password and teacher PIN before classroom use (see [firmware configuration](FIRMWARE.md#configuration)). The configured AP limit is ten connected phones/devices total, including a teacher's device. It is not the 50-student roster limit.
+For a **confirmed blank board only**, initialize LittleFS with `pio run -d firmware -e esp32_solo -t uploadfs --upload-port YOUR_ESP_USB_OR_UART0_PORT`. It replaces the filesystem; do not run it when classroom data must be kept. Set the AP password and teacher PIN before classroom use (see [firmware configuration](FIRMWARE.md#3-configuration)). The configured AP limit is ten connected phones/devices total, including a teacher's device. It is not the 50-student roster limit.
 
 **Storage:** No microSD adapter is wired or initialized. The TFT's SPI is write-only, with no MISO connection. **Menu → Storage** reports LittleFS in internal ESP32 flash.
 
@@ -97,7 +96,7 @@ For a **confirmed blank board only**, initialize LittleFS with `pio run -d firmw
 
 ## Version A: development-board implementation notes
 
-Use the selected dual-controller view in the [interactive wiring blueprint](../hardware/wiring.html) and the GPIO mapping above. The old bare-module wiring does not apply.
+Use the [Option A dual-controller view](../hardware/wiring.html#dual-controller) and the GPIO mapping above. The old bare-module wiring does not apply.
 
 ### Parts and electrical limits
 
@@ -120,7 +119,7 @@ pio run -d firmware -e uno_display -t upload --upload-port YOUR_UNO_PORT
 pio run -d firmware -e esp32_dual -t upload --upload-port YOUR_ESP_USB_PORT
 ```
 
-For a **confirmed blank board only**, initialize LittleFS using `pio run -d firmware -e esp32_dual -t uploadfs --upload-port YOUR_ESP_USB_PORT`. This replaces the filesystem; do not run it when classroom data must survive. The existing 4 MB partition layout is retained, but the photos do not reveal this board’s flash size; verify it before using `uploadfs` or changing partitions. Configure private SoftAP credentials before building (see [firmware configuration](FIRMWARE.md#configuration)).
+For a **confirmed blank board only**, initialize LittleFS using `pio run -d firmware -e esp32_dual -t uploadfs --upload-port YOUR_ESP_USB_PORT`. This replaces the filesystem; do not run it when classroom data must survive. The existing 4 MB partition layout is retained, but the photos do not reveal this board’s flash size; verify it before using `uploadfs` or changing partitions. Configure private SoftAP credentials before building (see [firmware configuration](FIRMWARE.md#3-configuration)).
 
 ## Controls and session behavior
 
