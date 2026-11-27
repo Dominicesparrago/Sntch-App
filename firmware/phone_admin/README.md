@@ -4,7 +4,7 @@
 
 ## Wire the board
 
-Follow the [Option C wiring diagram](../../hardware/wiring.html#phone-admin) and match the GPIO labels on the board.
+Follow the [Option C wiring diagram](../../hardware/wiring.html#phone-admin) and match the GPIO labels on the board. Option C requires a separate SPI microSD module wired to the ESP32 and a prepared FAT32 card. The classroom service does not start without a usable card.
 
 | Connection | ESP32 pin |
 | --- | --- |
@@ -12,6 +12,8 @@ Follow the [Option C wiring diagram](../../hardware/wiring.html#phone-admin) and
 | TFT and microSD MOSI (SD DI) | GPIO23 |
 | microSD MISO (SD DO) | GPIO19 |
 | microSD CS | GPIO27 |
+| microSD VCC | Regulated 3.3 V for a compatible module |
+| microSD GND | ESP32 GND |
 | TFT CS | GPIO22 |
 | TFT D/C | GPIO21 |
 | TFT RESET | GPIO17 |
@@ -22,11 +24,11 @@ Use common ground and confirmed 3.3 V logic. A separate level shifter is unneces
 
 1. Use a blank FAT32 card. On the computer, create a folder named `sntch` in the card’s root. Copy [`sntch_pending_init.txt`](../data/sntch_pending_init.txt) into that folder as its only file: `/sntch/sntch_pending_init.txt`. This authorizes first-boot initialization. Safely eject the card and insert it with the ESP32 off.
 2. Set `SNTCH_AP_PASSWORD` (private WPA2 password, at least eight characters) and `SNTCH_TEACHER_PIN` (private PIN, at least eight digits) in your build environment.
-3. Confirm the board has at least 4 MB of flash. From the repository root, use PlatformIO:
+3. Confirm the board has at least 4 MB of flash. Option C is the PlatformIO default. From the repository root:
 
    ```sh
-   pio run -d firmware -e esp32_phone_admin
-   pio run -d firmware -e esp32_phone_admin -t upload
+   pio run -d firmware
+   pio run -d firmware -t upload
    ```
 
    Option C uses the card directly; no `uploadfs` step is needed. Flashing this target does not migrate records from the other builds’ LittleFS partition.

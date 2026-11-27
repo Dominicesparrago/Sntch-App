@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SNTCH · Hardware wiring bench</title>
+  <link rel="stylesheet" href="wiring.css">
+  <script defer src="config.js"></script>
+  <script defer src="breadboards.js"></script>
+  <script defer src="wiring-model.js"></script>
+  <script defer src="wiring.js"></script>
+  <script defer src="wiring-esp32.js"></script>
+</head>
+<body>
+  <header class="mast">
+    <div class="brand"><i></i> SNTCH / HARDWARE LAB</div>
+    <div class="intro"><div><p class="overline">REFERENCE WORKSPACE</p><h1>SNTCH hardware wiring</h1>
+      <p>Option C is the default build: ESP32, TFT, and an external SPI microSD module. Options A and B are also available.</p></div>
+      <a href="SNTCH_Hardware_Faces_UI_Preview.html">Original TFT reference ↗</a>
+    </div>
+  </header>
+  <main>
+    <nav class="build-choice" aria-label="Wiring versions">
+      <button type="button" id="choose-dual" aria-controls="dual-build" aria-pressed="false"><b>A · UNO + ESP-32U</b><span>Dual-controller build · UNO owns TFT and buttons · level shifting required</span></button>
+      <button type="button" id="choose-solo" aria-controls="solo-build" aria-pressed="false"><b>B · ESP32-only + buttons</b><span>Alternate profile · TFT and four local controls</span></button>
+      <button type="button" id="choose-phone" aria-controls="solo-build" aria-pressed="true"><b>C · ESP32 + phone admin</b><span>Default build · external microSD module required</span></button>
+    </nav>
+    <div id="dual-build" hidden>
+     <aside class="notice"><strong>Photo-based identification</strong><span>The photos show an ESP-32U-marked module on a 38-pin development board with micro-USB, EN/BOOT buttons and an IPEX/U.FL-style antenna socket. A USB-UART bridge and 3V3 regulator are visible, but their markings/current rating are unreadable. The full board SKU and header order are unverified; the GPIO drawing is a logical map, not a physical pin-location template. Confirm GPIO16/17, power and ground labels on your actual board before wiring. Never connect 5 V to ESP32 GPIO or 3V3.</span></aside>
+    <section class="inventory" aria-label="Parts inventory">
+      <div><span class="badge owned">Controller responsibilities</span><p>UNO R3: four buttons, TFT rendering, menus, expressions/animations and QR actions. ESP-32U board: Wi-Fi, HTTP/API, session state and QR data. Existing framed UART protocol is unchanged.</p></div>
+      <div><span class="badge extra">Power arrangement</span><p>Power the UNO and ESP-32U board through their own USB inputs. Share GND. Do not tie the USB 5 V rails or UNO 5 V to ESP32 GPIO/3V3.</p></div>
+      <div><span class="badge extra">Storage / antenna</span><p>LittleFS remains on ESP32 flash; no microSD. Connect a compatible 2.4 GHz antenna to the board’s IPEX/U.FL-style socket before enabling Wi-Fi.</p></div>
+    </section>
+    <section class="card secondary bom" aria-labelledby="bom-heading">
+      <p class="overline">VERSION A · SHOPPING AND STATUS</p><h2 id="bom-heading">Bill of materials</h2>
+      <div class="table-scroll"><table><thead><tr><th>Status</th><th>Part</th><th>Qty</th><th>Notes</th></tr></thead><tbody>
+        <tr><td><span class="badge owned">Required</span></td><td>Arduino UNO R3; ESP-32U 38-pin development board</td><td>1 each</td><td>Use the board shown in the photos. Its USB connector is micro-USB; bridge/regulator chip numbers remain unreadable.</td></tr>
+        <tr><td><span class="badge extra">Required</span></td><td>2.4 GHz Wi-Fi antenna with matching IPEX/U.FL plug</td><td>1</td><td>50 Ω Wi-Fi antenna. Confirm the exact connector series/gender before purchase; do not force it onto the socket.</td></tr>
+        <tr><td><span class="badge extra">Required</span></td><td>USB data cables and USB 5 V sources for UNO and ESP32 board</td><td>1 each</td><td>UNO USB-B and ESP32 micro-USB are separate power/programming inputs. Never join their positive rails.</td></tr>
+        <tr><td><span class="badge owned">Required</span></td><td>1.8-inch SPI TFT, four normally-open buttons, jumper wires, half-size and mini breadboards</td><td>1, 4, as needed</td><td>Verify TFT controller, supply, backlight circuit and actual header before wiring. Existing UNO pin map is retained.</td></tr>
+        <tr><td><span class="badge extra">Required</span></td><td>U1: 74LVC245 octal bus transceiver, SOIC-20 (listing 550742459); U2: 74HCT125D quad buffer, SOIC-14 (listing 550741254)</td><td>1 each</td><td>U1: power at verified 3.3 V, DIR high for A→B, /OE low; six required 5 V → 3.3 V channels, with a seventh optional D6 backlight channel. Exact LVC245 datasheet must confirm 5 V-tolerant inputs at 3.3 V VCC. U2: power at UNO 5 V, use A→Y with /OE low; HCT TTL thresholds accept ESP32 3.3 V TX. Confirm exact manufacturer datasheets; do not substitute HC for HCT.</td></tr>
+        <tr><td><span class="badge extra">Required</span></td><td>100 nF ceramic bypass capacitors</td><td>2</td><td>One from U1 VCC to GND and one from U2 VCC to GND. Place close to each IC.</td></tr>
+        <tr><td><span class="badge extra">Required for listed packages</span></td><td>SOIC-20-to-breadboard adapter for U1; SOIC-14-to-breadboard adapter for U2</td><td>1 each</td><td>Match the adapter footprint, pitch and body width to the exact SOIC packages. Not needed if using a suitable soldered breakout instead.</td></tr>
+        <tr><td><span class="badge extra">Conditional</span></td><td>Separate regulated 3.3 V peripheral supply</td><td>As needed</td><td>Only if the ESP32 board’s 3V3 output cannot safely power U1/TFT. Share GND, but never parallel this supply with the board’s 3V3 output.</td></tr>
+        <tr><td><span class="badge eliminated">Eliminated</span></td><td>Bare-module carrier/boot network, external EN/BOOT buttons, separate USB-UART adapter, ESP32-only 3.3 V regulator</td><td>0</td><td>The pictured development board visibly integrates EN/BOOT buttons, USB-UART and 3V3 regulation. Its onboard parts still need their ratings verified.</td></tr>
+      </tbody></table></div>
+    </section>
+    <nav id="modes" aria-label="Workspace views"></nav>
+    <section class="work" id="diagram-view">
+      <div class="canvas">
+        <div class="canvas-top"><strong id="view-name">Full wiring diagram</strong><span id="baud"></span><button id="reset-view">Show all</button></div>
+        <div class="canvas-scroll"><svg id="diagram" viewBox="0 0 1390 846" aria-labelledby="board-title"><title id="board-title">Selectable top view of SNTCH hardware and jumper wires</title></svg></div>
+        <div class="legend"><span><i class="p5"></i>5 V</span><span><i class="p3"></i>3.3 V</span><span><i class="pg"></i>Ground</span><span><i class="pt"></i>SPI</span><span><i class="pu"></i>UART</span><span><i class="rf"></i>RF coax · antenna only</span><span>USB · board power/programming</span><span>Dashed · optional or unverified</span></div>
+      </div>
+      <aside class="side">
+        <section class="card inspector"><p class="overline">SIGNAL INSPECTOR</p><h2 id="inspect-title">Explore the assembly</h2><div id="inspect-info">Pick a board, pin, cable, or table row to show its endpoint details.</div></section>
+        <section class="card"><p class="overline">ASSEMBLY ORDER · POWER OFF</p><h2>Wiring guide</h2><ol id="steps"></ol><div id="step-info" aria-live="polite"></div></section>
+      </aside>
+    </section>
+    <section class="card secondary" id="flow-view" hidden>
+      <p class="overline">APPLICATION / TRANSPORT</p><h2>System communication flow</h2>
+      <div class="flow-buttons" id="flows"></div><div id="flow-lanes"></div>
+    </section>
+    <section class="card secondary" id="preview-view" hidden>
+      <p class="overline">BROWSER SIMULATION ONLY · NO HARDWARE LINK</p><h2>Hardware preview</h2>
+      <p>Use the on-screen buttons, keyboard, or two-touch input. Hold <kbd>M</kbd> + <kbd>Enter</kbd> to refresh QR; hold <kbd>↑</kbd> + <kbd>↓</kbd> for standby or wake.</p>
+      <iframe title="Interactive simulated SNTCH 160 by 128 display" src="panel-preview.html"></iframe>
+    </section>
+    <div class="lower" id="diagram-details">
+      <section class="card">
+        <p class="overline">PIN REGISTER</p><h2>Connections <small id="wire-count"></small></h2>
+        <p>Selections are synchronized with the diagram. Voltage entries describe the individual jumper segment.</p>
+        <div class="table-scroll"><table><thead><tr><th>Source</th><th>Destination</th><th>Signal</th><th>Voltage</th><th>Wire</th><th>Status</th><th>Notes</th></tr></thead><tbody id="connections"></tbody></table></div>
+      </section>
+      <section class="card validator">
+        <p class="overline">BLUEPRINT CONSISTENCY · NO ELECTRICAL MEASUREMENTS</p><h2>Connection validator</h2>
+        <p>Choose the details you have verified. Optionally edit a jumper in the sandbox to check a proposed change. Edits are not firmware changes and are not saved.</p>
+          <label>TFT controller <select id="driver"><option value="">Not identified</option><option value="ST7735">ST7735/ST7735S · tested with BLACKTAB profile</option><option value="other">Different driver or tab geometry</option></select></label>
+          <label>TFT supply <select id="tft-power"><option value="">Not verified</option><option value="3.3">Breakout specified for 3.3 V input</option><option value="5">Breakout requires 5 V input</option></select></label>
+          <label class="check"><input type="checkbox" id="regulator"> Measured board 3V3 current headroom for attached translators / display</label>
+        <label class="check"><input type="checkbox" id="peripheral"> Another peripheral needs these SPI pins / CS or UART2</label>
+        <label class="check"><input type="checkbox" id="bl-confirmed"> Active-high 3.3 V backlight EN and firmware option verified</label>
+        <details><summary>Try a wiring change</summary>
+          <label>Jumper to edit <select id="edit-wire"></select></label>
+          <label>Destination pin / pad <select id="edit-pin"></select></label>
+          <label class="check"><input type="checkbox" id="edit-disable"> Omit this jumper</label>
+          <button id="edit-apply">Apply sandbox edit</button> <button id="edit-reset">Restore reference map</button>
+        </details>
+        <ul id="validation" aria-live="polite"></ul>
+      </section>
+    </div>
+    </div>
+    <section id="solo-build" aria-labelledby="solo-heading">
+      <aside class="notice"><strong id="solo-notice-title">Alternate profile only</strong><span id="solo-notice-copy">Version B moves the TFT and buttons to ESP32 GPIO and is not the selected UNO architecture. It still needs the external antenna and verified board/TFT power. The same photo-identified board pin labels apply only where the required GPIOs are exposed.</span></aside>
+      <section class="inventory" id="solo-buttons-inventory" aria-label="ESP32-only parts inventory">
+        <div><span class="badge owned">One breadboard</span><p>Mount all four pin-style buttons on your half-size breadboard. Use its power rails for the verified 3.3 V peripherals. The mini breadboard is not used in Version B.</p></div>
+        <div><span class="badge extra">ESP32-only firmware</span><p><code>esp32_solo</code> runs the classroom server, TFT, buttons, QR and standby.</p></div>
+        <div><span class="badge extra">LittleFS storage</span><p>No microSD wiring or firmware support is included. Session data stays in the ESP32’s internal flash filesystem.</p></div>
+      </section>
+      <section class="inventory" id="solo-phone-inventory" aria-label="Phone-administered parts" hidden>
+        <div><span class="badge owned">Automatic startup</span><p>Power the ESP-32U development board by USB. It starts the local controller; no user-facing power or menu buttons are needed.</p></div>
+        <div><span class="badge extra">Phone as the menu</span><p>The TFT shows a connection QR and status automatically. A teacher uses the app’s PIN-protected administration screens; students use the student flow.</p></div>
+        <div><span class="badge extra">microSD storage</span><p><code>esp32_phone_admin</code> saves classroom records to a prepared FAT32 card. See the <a href="../firmware/phone_admin/README.md">Option C setup and flash guide</a>.</p></div>
+      </section>
+      <nav id="solo-modes" aria-label="ESP32-only wiring views"></nav>
+      <p class="placement-jump" id="solo-placement-jump"><a href="#breadboard-placement">Go to exact breadboard holes ↓</a></p>
+      <div class="work">
+        <div class="canvas">
+          <div class="canvas-top"><strong id="solo-heading">ESP32-only wiring</strong><span>3.3 V LOGIC · GPIO NUMBERS</span></div>
+          <div class="canvas-scroll"><svg id="solo-diagram" viewBox="0 0 1080 779" aria-labelledby="solo-diagram-title"><title id="solo-diagram-title">ESP32-only wiring; select either physical buttons or microSD connections</title></svg></div>
+          <div class="legend"><span><i class="p3"></i>Regulated 3.3 V</span><span><i class="pg"></i>Common GND</span><span><i class="pt"></i>SPI</span><span>Dashed · conditional</span></div>
+        </div>
+        <aside class="side">
+          <section class="card inspector"><p class="overline">SIGNAL INSPECTOR</p><h2 id="solo-inspect-title">Pick a part or wire</h2><p id="solo-inspect-info">The ESP32 pin positions are schematic. Match GPIO numbers against the documentation for your board.</p></section>
+          <section class="card"><p class="overline">ASSEMBLY ORDER · POWER OFF</p><h2>Wiring guide</h2><ol id="solo-steps"></ol><p id="solo-step-info" aria-live="polite">Start with the power source and ground, then connect the TFT and buttons.</p></section>
+        </aside>
+      </div>
+      <section class="card phone-admin-guide" id="phone-admin-guide" hidden>
+        <p class="overline">OPTION C · AUTOMATIC START · PHONE-BASED ADMIN</p>
+        <h2>Startup and classroom access</h2>
+        <ol>
+          <li>When USB power is connected, the ESP32 boots, loads classroom records from microSD, and starts its local SNTCH Wi-Fi network.</li>
+          <li>The TFT displays the controller QR, Wi-Fi name and manual connection address. It switches to a student join QR when exactly one activity is live.</li>
+          <li>The teacher connects their phone and uses the app’s teacher sign-in and administration screens. Students use the student join flow.</li>
+          <li>There are no user-facing panel buttons. The app is the menu; the board’s EN/BOOT controls are for recovery and programming, not normal classroom use.</li>
+        </ol>
+        <p><strong>Access control:</strong> Keep the network protected and require the teacher PIN for teacher functions. Do not put the PIN in a QR code or display it on the TFT. The existing teacher app manages classroom records and sessions; changing Wi-Fi credentials or firmware settings from the phone would need additional app and firmware work.</p>
+        <h2>microSD connections</h2>
+        <p>Wire a separate SPI microSD module to the ESP32 header using the connections below, then insert a prepared FAT32 card. The classroom service will not start if it cannot mount the card. Options A and B use internal LittleFS.</p>
+        <div class="table-scroll"><table class="solo-table"><thead><tr><th>SD module pin</th><th>ESP32 connection</th><th>Use / condition</th></tr></thead><tbody>
+          <tr><td>SCK</td><td>GPIO18 · shared with TFT SCK</td><td>Shared SPI clock; both devices need a separate chip-select signal.</td></tr>
+          <tr><td>MOSI / DI</td><td>GPIO23 · shared with TFT MOSI</td><td>ESP32-to-card data; confirm the module’s SPI pin labels.</td></tr>
+          <tr><td>MISO / DO</td><td>GPIO19</td><td>Card-to-ESP32 data; not used by the write-only TFT.</td></tr>
+          <tr><td>CS</td><td>GPIO27 · separate from TFT CS on GPIO22</td><td>Verify that this labeled pin is exposed on the actual board.</td></tr>
+          <tr><td>VCC</td><td>Regulated 3.3 V for a compatible module</td><td>Use the ESP32’s 3V3 output only if it can supply both the module and TFT.</td></tr>
+          <tr><td>GND</td><td>ESP32 GND</td><td>The ESP32, TFT, and microSD module share ground.</td></tr>
+        </tbody></table></div>
+        <p>Power off and disconnect USB before changing wiring. Confirm the ESP32 board’s 3.3 V current capacity under the intended load; do not feed 5 V signals into ESP32 GPIO.</p>
+      </section>
+      <section class="card placement" id="breadboard-placement">
+        <p class="overline">VERSION B · PHYSICAL PLACEMENT</p><h2>Exact breadboard holes</h2>
+        <p>Use just the half-size breadboard. Orient it so <strong>A–E</strong> is above the center gap and <strong>F–J</strong> below. Count columns from the left. Holes A–E in one numbered column are connected; F–J is a separate strip. On the same side of the gap, put the two switch contacts in <strong>different numbered columns</strong>.</p>
+        <label class="footprint-choice">Button pin placement <select id="solo-footprint">
+          <option value="compact2">Two columns apart (5.08 mm on a standard breadboard)</option>
+          <option value="compact1">Adjacent columns (2.54 mm on a standard breadboard)</option>
+          <option value="across">Same column, across the center gap (only if it fits)</option>
+        </select></label>
+        <div class="table-scroll"><table class="solo-table"><thead><tr><th>Button / board</th><th>GPIO jumper</th><th>Opposite switch contacts</th><th>Ground jumper</th></tr></thead><tbody id="solo-placement-keys"></tbody></table></div>
+        <p><strong>Common ground:</strong> ESP32 <code>GND</code> → half-size rail <code>−2</code>. The four switches connect to this same ground rail, not the positive rail.</p>
+        <p><strong>Check each power rail:</strong> <code>+</code> and <code>−</code> refer to the adjacent rail pair below row J. Count the <strong>25 actual rail holes</strong> from the left, skipping the gaps between groups. They do not line up one-for-one with the lettered holes. For a measured midpoint split, bridge <code>+9 → +17</code> and <code>−9 → −17</code> as needed; never join + to −. Turn on “Show split rail bridges” below if yours needs them.</p>
+        <p><strong>Match the pins, not the drawing:</strong> The selector changes the connection table and the diagram. With power off, confirm each button fits without bending its pins and that the chosen holes are disconnected until pressed. If no layout fits, use a matching adapter or short leads to the listed holes.</p>
+        <details><summary>Find the correct contacts on a small button</summary>
+          <ul><li><strong>Two-pin normally open button:</strong> use both pins in the two listed contact holes. Polarity does not matter.</li>
+          <li><strong>Four-pin tactile button:</strong> use one leg from each internally connected pair. Check the mounted switch: none of the other legs may join the input and ground strips at rest. The input and return must show <strong>no continuity at rest</strong> and continuity only while pressed.</li></ul>
+        </details>
+        <p>The TFT signal jumpers run directly to the ESP32 header; don’t put them into a breadboard power rail.</p>
+        <div class="table-scroll"><table class="solo-table"><thead><tr><th>Power path</th><th>Half-size rail hole</th><th>Condition</th></tr></thead><tbody id="solo-placement-power"></tbody></table></div>
+      </section>
+      <div class="lower">
+        <section class="card">
+          <p class="overline" id="solo-connections-label">ESP32-ONLY PIN REGISTER</p><h2>Connections <small id="solo-wire-count"></small></h2>
+          <p id="solo-connection-note">The TFT uses write-only SPI. Leave MISO and any microSD pins disconnected.</p>
+          <div class="table-scroll"><table class="solo-table"><thead><tr><th>Source</th><th>Destination</th><th>Signal</th><th>Level</th><th>Status</th></tr></thead><tbody id="solo-connections"></tbody></table></div>
+        </section>
+        <section class="card validator">
+          <p class="overline">REFERENCE CHECKLIST · NO ELECTRICAL MEASUREMENTS</p><h2>Can I wire this version?</h2>
+          <label>ESP-32U board <select id="solo-form"><option value="dev">Photo-identified 38-pin USB development board</option></select></label>
+          <label>TFT <select id="solo-tft"><option value="">VCC / logic / LED not verified</option><option value="ok">Verified 3.3 V VCC and SPI; LED requirements known</option><option value="blocked">Different voltage or incompatible interface</option></select></label>
+          <label class="check"><input type="checkbox" id="solo-rail"> Measured 3V3 output headroom for the TFT and other peripherals</label>
+          <label class="check"><input type="checkbox" id="solo-split"> Show split rail bridges (only if a midpoint split is measured)</label>
+          <label class="check"><input type="checkbox" id="solo-led"> Show separate TFT LED power only if rated for direct 3.3 V with onboard current limiting</label>
+          <ul id="solo-checks" aria-live="polite"></ul>
+        </section>
+      </div>
+    </section>
+    <footer>
+      <span>Reference drawings are top view, not scale templates. Open <a href="../docs/DUAL_HARDWARE.md">build and bench-test notes</a>.</span>
+      <span><a href="https://docs.arduino.cc/hardware/uno-rev3/">UNO R3</a> · <a href="https://www.ti.com/lit/ds/symlink/sn74lvc245a.pdf">74LVC245A reference datasheet</a> · <a href="https://www.ti.com/lit/ds/symlink/sn74hct125.pdf">74HCT125 reference datasheet</a></span>
+    </footer>
+  </main>
+</body></html>

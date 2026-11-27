@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -23,8 +24,8 @@ class Storage {
   }
   virtual bool remove(const std::string& path) = 0;
   virtual std::vector<std::string> list(const std::string& dir) = 0;
-  virtual size_t usedBytes() { return 0; }
-  virtual size_t totalBytes() { return 0; }
+  virtual uint64_t usedBytes() { return 0; }
+  virtual uint64_t totalBytes() { return 0; }
 };
 
 // In-memory storage with a byte budget. Used by unit tests and the host
@@ -67,8 +68,8 @@ class MemoryStorage : public Storage {
     return out;
   }
 
-  size_t usedBytes() { return used_; }
-  size_t totalBytes() { return capacity_; }
+  uint64_t usedBytes() override { return used_; }
+  uint64_t totalBytes() override { return capacity_; }
 
   void setFailWrites(bool fail) { failWrites_ = fail; }
   void setCapacity(size_t bytes) { capacity_ = bytes; }

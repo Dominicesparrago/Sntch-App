@@ -1,7 +1,8 @@
 # SNTCH — offline-first classroom controller
 
 SNTCH is a classroom activity, attendance, examination and session system that runs on a
-standalone **ESP32-WROOM-32D (classic ESP32)** controller with **Android** teacher and student apps. The controller
+standalone **ESP-32U** controller with a TFT, an external SPI microSD module, and **Android**
+teacher and student apps. The controller
 creates its own Wi-Fi network; nothing depends on the internet, a Raspberry Pi, a router or a
 cloud service.
 
@@ -33,23 +34,20 @@ docs/                         architecture, protocol, firmware, Android, testing
 
 ## Quick start
 
-**Firmware** (PlatformIO 6.2, configured for the available ESP32-WROOM-32D):
+**Firmware:** PlatformIO defaults to Option C (`esp32_phone_admin`). Follow the
+[wiring diagram](hardware/wiring.html#phone-admin) and [setup guide](firmware/phone_admin/README.md)
+to wire the microSD module, prepare the FAT32 card, and set your private Wi-Fi password and
+teacher PIN before building:
 
 ```bash
-cd firmware
-pio run -e esp32wroom32d            # build the classic ESP32-WROOM-32D firmware
-pio run -e esp32wroom32d -t buildfs # build the explicit first-use LittleFS image
-pio run -e esp32wroom32d -t uploadfs # first use only; replaces LittleFS contents
-pio run -e esp32wroom32d -t upload
-pio device monitor -b 115200
+pio run -d firmware
+pio run -d firmware -t upload
+pio device monitor -d firmware -b 115200
 ```
 
-The first-use filesystem image includes a pending-initialization marker. `uploadfs` replaces the
-filesystem partition, so use it only for a confirmed new installation with no classroom data to keep.
-
-The board starts an access point named `SNTCH-EXAM` (password `sntch-1234`) and serves
-`http://192.168.4.1`. Change the SSID, password, teacher PIN and channel with build flags —
-see `docs/FIRMWARE.md`.
+Option C stores records on the card and does not need `uploadfs`. The board starts an access point
+named `SNTCH-EXAM` and serves `http://192.168.4.1` once storage is ready. See the
+[hardware guide](docs/DUAL_HARDWARE.md) for Options A and B.
 
 **Android**:
 
