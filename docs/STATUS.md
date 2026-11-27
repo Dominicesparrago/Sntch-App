@@ -1,10 +1,10 @@
 # Implementation status
 
-Last verified in this environment: ESP32-WROOM-32D firmware build, 373 native checks, 101 HTTP
-end-to-end checks, 37 Android JVM tests (including payloads captured from the live controller),
-debug APK builds, and an Arduino Uno compile of the status-link sketch. **No ESP32 hardware, no Uno
-hardware, and no Android device/emulator were used.** Anything below marked "host-tested" was
-exercised in simulation, not on a phone or board.
+The selected Option C firmware (`esp32_phone_admin`) builds, and its host tests cover FAT32
+module integration with simulated card I/O, interrupted file replacement, capacity reporting,
+and automatic TFT QR/status behavior. Earlier checks cover the shared classroom rules, HTTP
+workflows, and Android data layer. The actual ESP-32U, SD module, TFT, and phones still need an
+assembled-hardware test. See [Testing and verification](TESTING.md).
 
 ## 1. Verification levels
 
@@ -17,8 +17,9 @@ exercised in simulation, not on a phone or board.
 
 | Feature | Implemented | Compiled | Host-tested | Hardware |
 |---|---|---|---|---|
-| ESP32-WROOM-32D app, WPA2 access point, HTTP/JSON API | yes | yes | E2E (same core over TCP) | no |
-| LittleFS persistence + atomic writes + boot recovery | yes | yes | native (memory storage, restart) | no |
+| Option C firmware, WPA2 access point, HTTP/JSON API | yes | yes | E2E (same core over TCP) | no |
+| External SPI microSD mount, record writes and restart recovery | yes | yes | simulated card I/O and file recovery | no |
+| Automatic TFT QR, address and storage errors | yes | yes | simulated panel tests | no |
 | Teacher PIN sign-in, bearer tokens, role separation | yes | yes | native + E2E + JVM | no |
 | Roster import/upsert, section targeting, 50-student limit | yes | yes | native + E2E + JVM | no |
 | Activities: create draft, publish, complete | yes | yes | native + E2E | no |
@@ -58,8 +59,8 @@ records above are reported by an external client rather than injected into this 
 
 ## 4. Known limitations
 
-1. **Access-point capacity.** The configured ESP32-WROOM-32D access point allows at most 10 stations, so one controller serves
-   ~8–10 phones, not 40–50. The data model holds 50. Options are in `docs/FIRMWARE.md` §5.
+1. **Access-point capacity.** The configured ESP32 access point allows at most 10 connected devices,
+   including the teacher's phone. The data model holds 50 students.
 2. **No real-time clock.** No absolute scheduling, no wall-clock timestamps in results. Sessions
    expire by duration; attendance dates come from the teacher's phone.
 3. **No TLS.** Bearer tokens travel on a WPA2 classroom LAN. Documented, not hidden.
@@ -67,7 +68,8 @@ records above are reported by an external client rather than injected into this 
 5. **Session deletion is backup-first**, but students, activities and submissions still have no
    destructive endpoints, and there is **no CSV export** in V1; the corresponding prototype
    buttons were removed rather than left non-functional.
-6. **No QR scanning**; codes are typed. No camera permission is requested.
+6. **Manual entry in the checked-in Android app.** The TFT displays QR codes, but this app version
+   uses a typed controller address and session code.
 7. **No Wi-Fi auto-connect**; the user joins `SNTCH-EXAM` in system settings.
 8. **UI unverified on a device.** No screenshot, layout or gesture claim is made.
 9. **Hardware unverified.** The firmware image has never run on a board in this environment.
@@ -86,8 +88,7 @@ records above are reported by an external client rather than injected into this 
 4. Decide the capacity path: rotation, controller-per-room, or a station-mode/AP-bridge build.
 5. Add a wall clock source (DS3231 RTC or a teacher-supplied time on session creation) before
    implementing scheduled open/due windows.
-6. Small, safe additions: CSV export endpoint + share sheet, student delete, exam retake policy,
-   QR display of the session code (display only, no camera needed).
+6. Possible app additions: CSV export endpoint + share sheet, student delete and exam retake policy.
 7. Harden: per-student submission rate limit, optional AP password rotation, log redaction review,
    and a browser-based teacher fallback (explicitly out of V1 today).
 
@@ -96,13 +97,14 @@ records above are reported by an external client rather than injected into this 
 Created:
 
 - `firmware/lib/sntch_core/` — JSON, storage abstraction, classroom domain, HTTP/JSON API
-- `firmware/src/` — ESP32 boot, Wi-Fi AP, WebServer adapter, LittleFS storage, diagnostics
+- `firmware/src/` — ESP32 boot, Wi-Fi AP, WebServer adapter, diagnostics, flash storage for alternates
+- `firmware/phone_admin/` — Option C TFT and SPI microSD storage
 - `firmware/test/core_tests.cpp` — 373-check native suite
 - `firmware/platformio.ini`
 - `tools/host_sim/main.cpp` — simulator serving the same core
 - `tools/e2e_test.py`, `tools/capture_fixtures.py`, `tools/native_build.sh`, `tools/run_sim.sh`,
   `tools/android_build.sh`
-- `android/` — Gradle project, Compose teacher/student app, 37 JVM tests
+- `android/` — Gradle project, Compose teacher/student app, 38 JVM tests
 - `docs/` — architecture, protocol, firmware, Android, testing, status
 - `README.md`, `.gitignore`
 

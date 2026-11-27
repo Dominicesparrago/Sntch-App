@@ -818,8 +818,8 @@ Json Classroom::teacherSnapshot(Ms now, const DeviceInfo& info) const {
   device.set("firmware", Json::makeString(info.firmware));
   device.set("uptimeMs", Json(static_cast<double>(now)));
   device.set("freeHeap", Json(static_cast<int>(info.freeHeap)));
-  device.set("storageUsed", Json(static_cast<int>(info.storageUsed)));
-  device.set("storageTotal", Json(static_cast<int>(info.storageTotal)));
+  device.set("storageUsed", Json::makeNumber(info.storageUsed));
+  device.set("storageTotal", Json::makeNumber(info.storageTotal));
   device.set("storageError", Json(storageError_));
   device.set("students", Json(static_cast<int>(students_.size())));
   Json open = Json::array();
@@ -1110,6 +1110,37 @@ Result Classroom::createSession(const Json& body, Ms now, unsigned& id) {
   prune(now);
   if (!save()) return Result::fail(500, "STORAGE_FULL", "Could not save the session.");
   id = s.id;
+  return Result::good();
+}
+
+bool Classroom::hasTeacherLogin(Ms now) const {
+  for (const auto& t : teacherTokens_) if (t.expiresMs > now) return true;
+  return false;
+}
+
+Result Classroom::liveActivityQr(Ms now, bool rotate, unsigned& id, std::string& code,
+                                 unsigned& joined) {
+  Session* selected = nullptr;
+  for (auto& s : sessions_) {
+    if (s.refType != "activity" || effectiveState(s, now) != "live") continue;
+    if (selected) return Result::fail(409, "MULTIPLE_LIVE", "Choose one live activity in the teacher app.");
+    selected = &s;
+  }
+  if (!selected) return Result::fail(404, "NO_LIVE", "Start an activity in the teacher app.");
+  if (rotate) {
+    const std::string replacement = newSessionCode();
+    if (replacement.empty() || findSessionByCode(replacement))
+      return Result::fail(503, "CODE_UNAVAILABLE", "No join code available.");
+    const std::string previous = selected->code;
+    selected->code = replacement;
+    if (!save()) {
+      selected->code = previous;
+      return Result::fail(500, "STORAGE_FULL", "Could not persist the new join code.");
+    }
+  }
+  id = selected->id;
+  code = selected->code;
+  joined = selected->joined.size();
   return Result::good();
 }
 
@@ -2191,4 +2222,3 @@ std::string Classroom::statusLine(Ms now) const {
 }
 
 }  // namespace sntch
-

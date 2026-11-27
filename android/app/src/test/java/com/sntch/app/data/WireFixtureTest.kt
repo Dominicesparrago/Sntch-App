@@ -57,6 +57,18 @@ class WireFixtureTest {
     }
 
     @Test
+    fun `teacher snapshot preserves microSD byte counts beyond 2 GiB`() {
+        val snapshot = json("teacher_state.json")
+        val used = 3L shl 30
+        val total = 32L shl 30
+        snapshot.getJSONObject("device").put("storageUsed", used).put("storageTotal", total)
+
+        val device = TeacherState.parse(snapshot).device
+        assertEquals(used, device.storageUsed)
+        assertEquals(total, device.storageTotal)
+    }
+
+    @Test
     fun `teacher submission detail from the real controller has prompts but no keys`() {
         val raw = json("teacher_submission.json")
         val detail = SubmissionDetail.parse(raw)

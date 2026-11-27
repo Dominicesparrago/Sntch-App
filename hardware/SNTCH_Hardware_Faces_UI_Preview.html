@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SNTCH Hardware Face Preview</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:28px 16px;box-sizing:border-box;background:#E3ECE7;font-family:Roboto,system-ui,sans-serif;color:#14291E}
+.unit{display:flex;align-items:center;gap:22px;box-sizing:border-box;padding:22px 24px;border-radius:34px;background:#2B3B33;box-shadow:inset 0 1px 0 #ffffff26,inset 0 -4px 0 #00000040,0 24px 44px #10281d59}
+.side{display:flex;flex-direction:column;gap:22px}
+.center{display:flex;flex-direction:column;gap:12px}
+.top{display:flex;justify-content:space-between;align-items:center}
+.brand{font-size:11px;letter-spacing:3px;font-weight:700;color:#C9E3D5}
+.led{width:8px;height:8px;border-radius:50%;background:#34D399;box-shadow:0 0 0 3px #34D39933,0 0 8px #34D399}
+.led.warn{background:#FBBF24;box-shadow:0 0 0 3px #FBBF2433,0 0 8px #FBBF24}
+.led.bad{background:#E5484D;box-shadow:0 0 0 3px #E5484D33,0 0 8px #E5484D}
+.bezel{background:#050B14;border-radius:16px;padding:12px;box-shadow:inset 0 0 0 1px #000,0 0 0 2px #1C2822}
+.cw{position:relative;line-height:0;border-radius:4px;overflow:hidden}
+.cw.grid::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(to right,rgba(0,0,0,.2) 1px,transparent 1px),linear-gradient(to bottom,rgba(0,0,0,.2) 1px,transparent 1px);background-size:var(--z,2px) var(--z,2px)}
+canvas{display:block;width:320px;height:256px;image-rendering:pixelated;image-rendering:crisp-edges}
+.key{display:flex;flex-direction:column;align-items:center;gap:8px}
+.cap{width:52px;height:52px;border-radius:50%;border:0;padding:0;background:#44574C;cursor:pointer;box-shadow:inset 0 2px 0 #ffffff24,inset 0 -4px 0 #0000004d,0 4px 0 #17221d}
+.cap:active{transform:translateY(3px);box-shadow:inset 0 2px 0 #ffffff1a,inset 0 -2px 0 #0000004d,0 1px 0 #17221d}
+.cap.sel{background:#2F7C5B}
+.key span{font-size:10px;letter-spacing:1.2px;color:#9FB8AA;text-transform:uppercase}
+.foot{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.6px;color:#8FA99B;text-transform:uppercase}
+.sw{width:44px;height:20px;border-radius:10px;border:0;padding:0;background:#17221d;cursor:pointer;position:relative;box-shadow:inset 0 1px 2px #000}
+.sw i{position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#C9E3D5}
+.bench{width:420px;max-width:100%;box-sizing:border-box;background:#fff;border:1px solid #DCE9E0;border-radius:16px;padding:16px}
+.label{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#60766A;margin:0 0 8px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+.bench button{font:600 12px/1 Roboto,system-ui,sans-serif;height:36px;border-radius:10px;border:1px solid #DCE9E0;background:#F2F8F4;color:#14291E;cursor:pointer}
+.bench button:active{transform:scale(.97)}
+.grid4 button.on,.zoom button.on,.bench button.tog.on{background:#14532D;color:#fff;border-color:#14532D}
+.row{display:flex;gap:6px;margin-bottom:6px}
+.row button{flex:1}
+.zoom{display:flex;gap:6px}
+.zoom button{flex:1}
+.read{font-size:13px;color:#14291E;line-height:1.5;margin-bottom:4px;font-weight:600}
+.ev{font-size:12px;color:#60766A;line-height:1.5;margin-bottom:12px;min-height:36px}
+.slide{display:flex;align-items:center;gap:10px;font-size:12px;color:#60766A;margin-top:12px}
+.note{font-size:11px;color:#60766A;max-width:420px;text-align:center;margin:0;line-height:1.5}
+</style></head>
+<body>
+<div class="unit" id="dev">
+  <div class="side">
+    <div class="key"><button class="cap" data-k="up" aria-label="Up"></button><span>Up</span></div>
+    <div class="key"><button class="cap" data-k="down" aria-label="Down"></button><span>Down</span></div>
+  </div>
+  <div class="center">
+    <div class="top"><span class="led" id="led"></span><span class="brand">SNTCH</span><button class="sw" data-k="power" aria-label="Power"><i></i></button></div>
+    <div class="bezel"><div class="cw" id="cw"><canvas id="tft" width="160" height="128"></canvas></div></div>
+    <div class="foot"><span>ESP32-WROOM-32D</span><span>1.8 in TFT, 160 x 128 simulated</span></div>
+  </div>
+  <div class="side">
+    <div class="key"><button class="cap" data-k="back" aria-label="Back"></button><span>Back</span></div>
+    <div class="key"><button class="cap sel" data-k="sel" aria-label="Select"></button><span>Select</span></div>
+  </div>
+</div>
+<div class="bench">
+  <p class="label">Expression</p>
+  <div class="grid4" id="states"></div>
+  <div class="read" id="now"></div>
+  <div class="ev" id="ev"></div>
+  <div class="row"><button id="play">Pause demo</button><button id="replay">Replay boot</button><button id="blink">Blink now</button></div>
+  <div class="row"><button id="idle" class="tog on">Idle motion: on</button><button id="gridb" class="tog">Pixel grid: off</button></div>
+  <p class="label" style="margin-top:12px">TFT screens</p>
+  <div class="row"><button id="qrC">Controller QR</button><button id="qrA">Activity QR</button><button id="menuB">Menu</button></div>
+  <p class="label" style="margin-top:12px">Display zoom</p>
+  <div class="zoom"><button data-z="1">1x</button><button data-z="2" class="on">2x</button><button data-z="3">3x</button></div>
+  <label class="slide">Transition <input id="tr" type="range" min="250" max="450" value="340" style="flex:1"><span id="trv">340 ms</span></label>
+</div>
+<p class="note">Browser simulation of the SNTCH hardware face, menu and QR screens on a 160 x 128 landscape TFT. It is not connected to an ESP32 controller. The QR codes are real and scannable but carry demo text, not a live pairing token. The mascot is a 54 x 52 pixel sprite built from the SNTCH logo and T-pose sheet; faces follow the pixel-art expression sheet.</p>
+<script>
+const $=i=>document.getElementById(i);
+const SPR=["....................oooo..............................", "..................ooMMMMoo.......ooo..................", ".................ooMMMMMMMo....oommmoo................", ".................oMMMooMMMMoooMMMmmmmmo...............", "................oMMMMMoooooooMMMmmmmmho...............", "...............oMMMMMMMMhMMMMMMmmmmmmmho..............", "...............oMMMMMMMMMMMMMMmmmmmmmmho..............", "...............oMMMMMMMMMMMMmmmmmmmmmmhho.............", "..............oMMMMMMMMMMMMmmmmmmmmmmmhho.............", "..............oMMMMMMMMMMMmmmmmmmmmmmmhho.............", "..............MMMMMMMMMMMMMmmmmmmmmmmmhhho............", ".............oMMMMMMMMMMMMmmmmmmmmmmmmhhho............", ".............oMMMMMMMMMMmmmmmmmmmmmmmmhhho............", "...........oooMMMMMMMMMmmmmmmmmmmmmmmmhhhoooo.........", "........ooMMMoMMMMMMMMMMmmmmmmmmmmmmmmhhhoohhoo.......", "......ooMMMMonnMMMMMMMmmmmmmmmmmmmmmmhhhhhohhhhoo.....", ".....oMMMMMMonnnnnooooooooooooooooooooooohohhhhhho....", "....oMMMMMMMonnnnnnnnnnnnnnnnnnLLLLLLLnMMhhhhhhhhho...", "...oMMMMMMMMMnnnnsssssssssssoMsLoooooLMMMhhhhhhhhhho..", "...oMMMMMMMMMonnnsssssssssssoMsLooLooLMMMhohhhhhhhho..", "...oMMMMMMMMMMnnnsssssssssssoMsLoooooLMMMohhhhhhhhh...", "....oMMMMMMMMMnnnmmmmmmmmmmmmmmLLLLLLLmMMhhhhhhhhho...", ".....oMMMMMMMMMMMMMMMMoooooooooooooooohhhhhhhhhhho....", "......ooMMMMMMMMMMMMMMmmmmmmmmmmmmmmhhhhhhhhhhhoo.....", "......ooooMMMMMMMMMMMmmmmmmmmmmmmmmhhhhhhhhhhooo......", "......ollloooMMMMMMMMmmmmmmmmmmmmhhhhhhhhhooonnno.....", "......olllllooooMMMMmmmmmmmmmmmhhhhhhhhoooonnnnno.....", "......olllllllllooooooommmmmmhhhooooooonnnnnnnnno.....", "......olllllllllllllllooooooooooonnnnnnnnnnnnnnno.....", "......olllllllllllllllllnnnnnnnnnnnnnnnnnnnnnnnno.....", "....ooooooollllllllllllllnnnnnnnnnnnnnnnnnnnoooooo....", "..oollllllloolllllllllllnnnnnnnnnnnnnnnnnnoonnnnnnoo..", ".olllllllllllolllllllllnnnnnnnnnnnnnnnnnnonnnnnnnnnno.", "olllllllllllloolllllllnnnnnnnnnnnnnnnnnnonnnnnnnnnnnno", "olllllllllllllollllllllnnnnnnnnnnnnnnnnnonnnnnnnnnnnno", "osllllllllllllolllllllnnnnnnnnnnnnnnnnnnonnnnnnnnnnnno", "ossllllllllMMolllllllnnnnnnnnnnnnnnnnnnnnoMnnnnnnnnnno", ".oolMMMMMMMMolllllllnnnnnnnnnnnnnnnnnnnnnooMMMMMMMnoo.", "...oooMMMooolllllllnnnnnnnnnnnnnnnnnnnnnnnnoooMMooo...", ".........oMMMlllnnnnnnnnnnnnnnnnnnnnnnnnnnMMMo........", "..........oMMMlnnnnnnnnnnnnnnnnnnnnnnnnnnMMMo.........", "...........oMMMnnnnnnnnnnnnnnnnnnnnnnnnnMMMo..........", "............oMMMMnnnnnnnnnnnnnnnnnnnnnMMMMo...........", "........ooohhoMMMMnnnnnnnnnnnnnnnnnnnMMMoohooo........", ".......ohhhhhhooMMMMnnnnnnnnnnnnnnnMMMMoohhhhhoo......", "......ohhhhhhhhhlMMMMMMnnnnnnnnnMMMMMnnhhhhhhhhho.....", ".....ohhhhhhhhhhhoooMMMMMMMMMMMMMMMoohhhhhhhhhhho.....", ".....ohhhhhhhhhhhhhoooMMMMMMMMMMooohhhhhhhhhhhhho.....", "......ohhhhhhhhhhhhhhhoooooooooohhhhhhhhhhhhhhhho.....", "......oohhhhhhhhhhhhhhhoo.....oohhhhhhhhhhhhhhoo......", "........oohhhhhhhhhhooo.........oohhhhhhhhhhoo........", "..........oooooooooo...............ooooooooo.........."];
+const SPC={o:'#080B12',h:'#2A2F38',m:'#454C57',M:'#555C67',s:'#6F727A',n:'#898C92',l:'#979AA0',L:'#BBBEC3'};
+const FC={k:'#05091A',w:'#FFFFFF',a:'#4B515C',c:'#A9BDD6',y:'#F2B02C',r:'#E5484D',g:'#5FD38D',b:'#6CB6F2',p:'#F27BAA',o:'#F59E42'};
+const BGC='#ADB4BD';
+const CV=$('tft'),main=CV.getContext('2d');
+const fcv=document.createElement('canvas');fcv.width=160;fcv.height=128;const x=fcv.getContext('2d');   // the face is rendered here, then composed onto the TFT
+const AW=80,AH=64,OX=13,OY=4,SW=54,SH=52;
+const art=document.createElement('canvas');art.width=AW;art.height=AH;const a=art.getContext('2d');
+const spr=document.createElement('canvas');spr.width=SW;spr.height=SH;
+(function(){const s=spr.getContext('2d');SPR.forEach((r,y)=>{for(let i=0;i<r.length;i++){const c=r[i];if(c==='.')continue;s.fillStyle=SPC[c];s.fillRect(i,y,1,1)}})})();
+
+const PILL=['.kkk.','kwwwk','kwwwk','kwwwk','kwwwk','kkkkk','kaaak','kaaak','kaaak','.kkk.'];
+const SMALL=['.kk.','kwwk','kwwk','kkkk','kaak','kaak','.kk.'];
+const LINE6=['.kkkk.','kkkkkk'];
+const HAPPY=['..kkkk..','.kk..kk.','kk....kk'];
+const STAR=['.kkkkkk.','kkkwwkkk','kkkwwkkk','kwwwwwwk','kwwwwwwk','kkkwwkkk','kkkwwkkk','.kkkkkk.'];
+const ATTN=['kkkkkkk','.kwwwk.','.kwwwk.','.kkkkk.','.kaaak.','.kaaak.','..kkk..'];
+const LOSTL=['....kkk','kkkkkkk','.kwwwk.','.kwwwk.','.kkkkk.','.kaaak.','..kkk..'];
+const LOSTR=['kkk....','kkkkkkk','.kwwwk.','.kwwwk.','.kkkkk.','.kaaak.','..kkk..'];
+const BROWL=['kkk....','.kkkk..','...kkkk'],BROWR=['....kkk','..kkkk.','kkkk...'];
+const SQUINT=['kkkkk','kwwwk','.kkk.'];
+const SLASH=['..k..k..k','.k..k..k.','k..k..k..'],BACK=['k..k..k..','.k..k..k.','..k..k..k'];
+const M_SMILE7=['k.....k','.kkkkk.'],M_SMILE5=['k...k','.kkk.'],M_FROWN5=['.kkk.','k...k'],M_FROWN3=['.k.','k.k'];
+const M_OPEN=['kkkkk','kkkkk','kkkkk','.kkk.'],M_BIG=['kkkkkkk','kkkkkkk','.kkkkk.','..kkk..'];
+const PLUSK=['.k.','kkk','.k.'],PLUS=['.w.','www','.w.'];
+const DROP=['.kk.','kcck','kcwk','kcck','.kk.'];
+const TAG=['kkkkkk','kkyykk','kkyykk','kkyykk','kkkkkk','kkyykk','kkkkkk'];
+const FONT={A:['.###.','#...#','#...#','#####','#...#','#...#','#...#'],B:['####.','#...#','#...#','####.','#...#','#...#','####.'],C:['.###.','#...#','#....','#....','#....','#...#','.###.'],
+D:['####.','#...#','#...#','#...#','#...#','#...#','####.'],E:['#####','#....','#....','####.','#....','#....','#####'],G:['.###.','#...#','#....','#.###','#...#','#...#','.###.'],
+I:['#####','..#..','..#..','..#..','..#..','..#..','#####'],K:['#...#','#..#.','#.#..','##...','#.#..','#..#.','#...#'],L:['#....','#....','#....','#....','#....','#....','#####'],
+M:['#...#','##.##','#.#.#','#.#.#','#...#','#...#','#...#'],N:['#...#','##..#','#.#.#','#..##','#...#','#...#','#...#'],O:['.###.','#...#','#...#','#...#','#...#','#...#','.###.'],
+P:['####.','#...#','#...#','####.','#....','#....','#....'],R:['####.','#...#','#...#','####.','#.#..','#..#.','#...#'],S:['.####','#....','#....','.###.','....#','....#','####.'],
+T:['#####','..#..','..#..','..#..','..#..','..#..','..#..'],V:['#...#','#...#','#...#','#...#','#...#','.#.#.','..#..'],W:['#...#','#...#','#...#','#.#.#','#.#.#','##.##','#...#'],
+'!':['#','#','#','#','#','.','#'],'.':['.','.','.','.','.','.','#'],
+F:['#####','#....','#....','####.','#....','#....','#....'],H:['#...#','#...#','#...#','#####','#...#','#...#','#...#'],J:['..###','...#.','...#.','...#.','...#.','#..#.','.##..'],
+Q:['.###.','#...#','#...#','#...#','#.#.#','#..#.','.##.#'],U:['#...#','#...#','#...#','#...#','#...#','#...#','.###.'],X:['#...#','#...#','.#.#.','..#..','.#.#.','#...#','#...#'],
+Y:['#...#','#...#','.#.#.','..#..','..#..','..#..','..#..'],Z:['#####','....#','...#.','..#..','.#...','#....','#####'],
+'0':['.###.','#...#','#..##','#.#.#','##..#','#...#','.###.'],'1':['..#..','.##..','..#..','..#..','..#..','..#..','.###.'],'2':['.###.','#...#','....#','...#.','..#..','.#...','#####'],
+'3':['#####','...#.','..#..','...#.','....#','#...#','.###.'],'4':['...#.','..##.','.#.#.','#..#.','#####','...#.','...#.'],'5':['#####','#....','####.','....#','....#','#...#','.###.'],
+'6':['..##.','.#...','#....','####.','#...#','#...#','.###.'],'7':['#####','....#','...#.','..#..','.#...','.#...','.#...'],'8':['.###.','#...#','#...#','.###.','#...#','#...#','.###.'],
+'9':['.###.','#...#','#...#','.####','....#','...#.','.##..'],
+':':['.','#','.','.','.','#','.'],'-':['....','....','....','####','....','....','....'],'/':['....#','....#','...#.','..#..','.#...','#....','#....'],
+'%':['##..#','##.#.','...#.','..#..','.#...','.#.##','#..##'],' ':['...','...','...','...','...','...','...'],',':['..','..','..','..','.#','.#','#.'],'?':['.###.','#...#','....#','...#.','..#..','.....','..#..']};
+const ICON={check:['......#','.....##','#...##.','##.##..','.###...','..#....'],cross:['#...#','.#.#.','..#..','.#.#.','#...#']};
+
+const ST={
+ boot:{n:'Booting',cheek:'back',label:'BOOTING...',lc:'#F1F5F9',ev:'Controller startup: ESP32, LittleFS, Wi-Fi, TFT and storage initialising.'},
+ standby:{n:'Standby',cheek:'back',ev:'Waiting for a connection.'},
+ search:{n:'Pairing / searching',cheek:'back',fx:'wifi',ev:'Teacher pairing started, searching for the phone.'},
+ ready:{n:'Ready',cheek:'back',ev:'Teacher connection verified.'},
+ active:{n:'Activity active',cheek:'back',label:'ACTIVE',lc:'#5FD38D',ev:'Activity published and active.'},
+ focused:{n:'Focused / working',cheek:'back',label:'WORKING...',lc:'#F1F5F9',ev:'Students are working on the activity.'},
+ attention:{n:'Needs attention',cheek:'slash',fx:'alert',ev:'Validated student help request.'},
+ teacher:{n:'Teacher responding',cheek:'back',ev:'Teacher acknowledged the help request.'},
+ submitted:{n:'Submission received',cheek:'slash',label:'SAVED',icon:'check',lc:'#5FD38D',ev:'Submission saved by the controller.'},
+ completed:{n:'Completed',cheek:'slash',fx:'party',label:'COMPLETED!',lc:'#7CC4F7',ev:'Activity or session completed.'},
+ lost:{n:'Connection lost',cheek:'slash',label:'DISCONNECT',icon:'cross',lc:'#EF5B5B',ev:'Controller or connection failure detected.'},
+ recovery:{n:'Recovery',cheek:'slash',fx:'spin',label:'RECOVERING...',lc:'#F1F5F9',ev:'Restoring the saved classroom state.'}
+};
+const SEQ=Object.keys(ST);
+const SHORT=['Booting','Standby','Pairing','Ready','Active','Working','Attention','Teacher','Saved','Completed','Lost','Recovery'];
+
+// ======================================================================
+//  Expression engine.
+//  A face is a set of independent FEATURES (eyes, brows, mouth, effects), each stored as a
+//  sparse list of coloured pixels.  A transition does NOT choose pixels from two finished
+//  faces.  Each feature is interpolated from the face that is on screen right now to the
+//  target face:
+//    - feature present in both  -> signed-distance-field shape morph (grows, shrinks, moves)
+//    - feature appears/vanishes -> radial grow / shrink about its own centre
+//    - cheek strokes            -> parametric slant (\\\  ->  |||  ->  ///)
+//    - captions                 -> per-caption opacity that always moves toward its target
+//  Everything is a function of elapsed time T, so it is frame-rate independent, and every
+//  transition starts from a snapshot of the currently displayed face, so interrupting one
+//  never makes the face jump.  No random noise is used anywhere in a transition.
+// ======================================================================
+const FEATS=['mouth','eyeL','eyeR','browL','browR','drop','plusL','plusR','tag','wifi','spin','party'];
+const BLINKS=new Set(['standby','search','ready','active','attention','teacher','lost','recovery']);
+const RSD=3,RDEEP=12,RDET=3,RAMP0=.05,RAMPK=.15,LEAD=.2;                          // distance limits for the shape morph (pixels)
+const CID={},CCOL=[''];
+function cid(col){let i=CID[col];if(!i){i=CCOL.length;CID[col]=i;CCOL.push(col)}return i}
+const newFace=()=>{const f={};for(const n of FEATS)f[n]={x:[],y:[],c:[]};return f};
+const ease=p=>.5*p+.5*(.5-.5*Math.cos(Math.PI*p));   // half linear, half sine: soft start/stop, no dead time
+
+let state='boot',from=null,tStart=0,TR=.34,holdT=0,demo=true,di=0,idle=true,T=0,lastShown='',zoomV=2,gridOn=false;
+let blinkNext=3.5,blinkStart=-1,gazeT=0,gazeCur=0,gazeNext=2.5;
+let snap=null,shownFace=null,slantFrom=-1,slantShown=-1;
+const barA={};SEQ.forEach(k=>barA[k]=0);barA.boot=1;
+
+// ---- emitting a face (pixels are written into the active feature) ----
+let OUT=null,FEAT='';
+function PX(X,Y,col){const f=OUT[FEAT];f.x.push(X+OX);f.y.push(Y+OY);f.c.push(cid(col))}
+function B(bm,l,t,col){for(let j=0;j<bm.length;j++){const r=bm[j];for(let i=0;i<r.length;i++){const ch=r[i];if(ch==='.')continue;PX(l+i,t+j,col||FC[ch])}}}
+function pairE(bmL,bmR,top,dx,a0,fL,fR){
+  const wL=bmL[0].length,wR=bmR[0].length,a=a0!==undefined?a0:Math.floor(22-(wL-1)/2);
+  FEAT=fL||'eyeL';B(bmL,a+dx,top);FEAT=fR||'eyeR';B(bmR,55-a-wR+dx,top);
+}
+function ring(pw,start,r0,r1,glint,round){
+  const bm=['..kkkkk..','.kwwwwwk.','kwwwwwwwk','kwwwwwwwk','kwwwwwwwk','kwwwwwwwk','kwwwwwwwk','.kwwwwwk.','..kkkkk..'].map(r=>r.split(''));
+  for(let j=r0;j<=r1;j++)for(let i=start;i<start+pw;i++){if(round&&(j===r0||j===r1)&&(i===start||i===start+pw-1))continue;bm[j][i]='k'}
+  if(glint)bm[r0+1][start+1]='w';
+  return bm.map(r=>r.join(''));
+}
+const PARTY=[[6,4,'y'],[12,-1,'g'],[2,12,'p'],[46,0,'b'],[51,6,'p'],[53,14,'y'],[40,-2,'o'],[8,16,'b']];
+function emitFace(id,o){
+  OUT=newFace();
+  const st=ST[id],g=o.g,bl=o.closed,eo=o.eyesOnly;
+  const pill=(bm,top,lw)=>{if(bl)pairE(['k'.repeat(lw)],['k'.repeat(lw)],35,g);else pairE(bm,bm,top,g)};
+  const L9=['kkkkkkkkk','kkkkkkkkk'];
+  switch(id){
+   case 'boot':pairE(LINE6,LINE6,33,0);break;
+   case 'standby':pill(PILL,30,5);if(!eo){FEAT='mouth';PX(27,41,FC.k)}break;
+   case 'search':if(bl)pairE(L9,L9,33,0,17);else{const r=ring(3,g,3,5,false,false);pairE(r,r,29,0,17)}break;
+   case 'ready':pill(PILL,30,5);if(!eo){FEAT='mouth';B(M_SMILE7,24,40)}break;
+   case 'active':if(bl)pairE(L9,L9,33,0,17);else{const r=ring(4,3+g,2,5,true,true);pairE(r,r,29,0,17)}if(!eo){FEAT='mouth';B(M_SMILE5,25,40)}break;
+   case 'focused':pairE(SQUINT,SQUINT,33,0);pairE(['kk'],['kk'],37,0);if(!eo)pairE(BROWL,BROWR,30,0,undefined,'browL','browR');break;
+   case 'attention':if(bl)pairE(['kkkkkkk'],['kkkkkkk'],31,0);else pairE(ATTN,ATTN,31,0);
+     if(!eo){FEAT='mouth';B(M_FROWN5,25,41);FEAT='drop';B(DROP,37,28)}break;
+   case 'teacher':pill(SMALL,32,4);if(!eo){FEAT='mouth';B(M_SMILE5,25,40)}break;
+   case 'submitted':pairE(STAR,STAR,30,0);if(!eo){FEAT='plusL';B(PLUSK,14,29);FEAT='plusR';B(PLUSK,38,29);FEAT='mouth';B(M_OPEN,25,40)}break;
+   case 'completed':pairE(HAPPY,HAPPY,32,0);if(!eo){FEAT='mouth';B(M_BIG,24,40)}break;
+   case 'lost':if(bl)pairE(['kkkkkkk'],['kkkkkkk'],31,0);else pairE(LOSTL,LOSTR,31,0);if(!eo){FEAT='mouth';B(M_FROWN3,26,41)}break;
+   case 'recovery':pill(SMALL,32,4);break;
+  }
+  if(!eo){
+   if(st.fx==='wifi'){FEAT='wifi';const n=1+Math.floor((T-tStart)*2.5)%3,c='#3A4352';PX(44,11,c);
+     for(let k=0;k<n;k++){const r=3+k*2.3;for(let ang=-90;ang<=0;ang+=5){const q=ang*Math.PI/180;PX(Math.round(44+Math.cos(q)*r),Math.round(11+Math.sin(q)*r),c)}}}
+   else if(st.fx==='alert'){FEAT='tag';B(TAG,46,2)}
+   else if(st.fx==='spin'){FEAT='spin';const head=Math.floor(T*9)%10;for(let i=0;i<10;i++){const ang=i*Math.PI/5-Math.PI/2,d=(head-i+10)%10;
+     const col=d===0?'#FFFFFF':d===1?'#F1F4F8':d===2?'#E0E5EB':'#CBD2DA';PX(Math.round(27+Math.cos(ang)*3.6),Math.round(43+Math.sin(ang)*3.6),col)}}
+   else if(st.fx==='party'){FEAT='party';PARTY.forEach(([X,Y,c],i)=>{const col=FC[c],ph=(T*2+i*.7)%3;if(ph<1.5)B(PLUS,X-1,Y-1,col);else PX(X,Y,col)})}
+  }
+  return OUT;
+}
+
+// ---- exact Euclidean distance transform (Felzenszwalb) and signed distance fields ----
+function dt1d(f,n,d,v,z){
+  let k=0;v[0]=0;z[0]=-1e20;z[1]=1e20;
+  for(let q=1;q<n;q++){
+    let s=((f[q]+q*q)-(f[v[k]]+v[k]*v[k]))/(2*q-2*v[k]);
+    while(s<=z[k]){k--;s=((f[q]+q*q)-(f[v[k]]+v[k]*v[k]))/(2*q-2*v[k])}
+    k++;v[k]=q;z[k]=s;z[k+1]=1e20;
+  }
+  k=0;for(let q=0;q<n;q++){while(z[k+1]<q)k++;const dx=q-v[k];d[q]=dx*dx+f[v[k]]}
+}
+function sqDist(mask,w,h){
+  const g=new Float64Array(w*h),m=Math.max(w,h),f=new Float64Array(m),d=new Float64Array(m),v=new Int32Array(m),z=new Float64Array(m+1);
+  for(let i=0;i<g.length;i++)g[i]=mask[i]?0:1e9;
+  for(let x=0;x<w;x++){for(let y=0;y<h;y++)f[y]=g[y*w+x];dt1d(f,h,d,v,z);for(let y=0;y<h;y++)g[y*w+x]=d[y]}
+  for(let y=0;y<h;y++){for(let x=0;x<w;x++)f[x]=g[y*w+x];dt1d(f,w,d,v,z);for(let x=0;x<w;x++)g[y*w+x]=d[x]}
+  return g;
+}
+function sdf(lab,w,h,cls,oc){
+  oc=oc||RSD;
+  const n=w*h,ins=new Uint8Array(n),out=new Uint8Array(n);
+  for(let i=0;i<n;i++){const on=cls===0?lab[i]!==0:lab[i]===cls;ins[i]=on?1:0;out[i]=on?0:1}
+  const dIn=sqDist(ins,w,h),dOut=sqDist(out,w,h),r=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    // Interior depth is NOT clamped: if it were, every deep pixel would share one value and a whole
+    // block of the shape would switch on the same frame.
+    let v=ins[i]?(dOut[i]>=1e8?-RDEEP:-(Math.sqrt(dOut[i])-.5)):(dIn[i]>=1e8?oc:Math.sqrt(dIn[i])-.5);
+    r[i]=Math.max(-RDEEP,Math.min(oc,v));
+  }
+  return r;
+}
+// Field for a colour region that does not exist on one side: it starts near the centre of the
+// region on the other side and grows outward, so thin regions switch in sequence, not in unison.
+function rampField(lab,w,h,cls){
+  let cx=0,cy=0,m=0;
+  for(let i=0;i<w*h;i++)if(lab[i]===cls){cx+=i%w;cy+=(i/w)|0;m++}
+  cx/=m;cy/=m;const r=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++)r[i]=RAMP0+RAMPK*Math.hypot(i%w-cx,((i/w)|0)-cy);
+  return r;
+}
+// ---- feature interpolation ----
+function reveal(F,a){
+  const n=F.x.length;if(a>=1)return F;
+  const o={x:[],y:[],c:[]};if(a<=0)return o;
+  let cx=0,cy=0;for(let i=0;i<n;i++){cx+=F.x[i];cy+=F.y[i]}cx/=n;cy/=n;
+  let rm=0;for(let i=0;i<n;i++)rm=Math.max(rm,Math.hypot(F.x[i]-cx,F.y[i]-cy));
+  const lim=(rm+.5)*a-.5;
+  for(let i=0;i<n;i++)if(Math.hypot(F.x[i]-cx,F.y[i]-cy)<=lim+1e-6){o.x.push(F.x[i]);o.y.push(F.y[i]);o.c.push(F.c[i])}
+  return o;
+}
+function sameFeat(A,B){const n=A.x.length;if(n!==B.x.length)return false;for(let i=0;i<n;i++)if(A.x[i]!==B.x[i]||A.y[i]!==B.y[i]||A.c[i]!==B.c[i])return false;return true}
+function sdfMorph(A,Bf,e){
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for(const F of [A,Bf])for(let i=0;i<F.x.length;i++){x0=Math.min(x0,F.x[i]);x1=Math.max(x1,F.x[i]);y0=Math.min(y0,F.y[i]);y1=Math.max(y1,F.y[i])}
+  x0=Math.max(0,x0-RSD-1);y0=Math.max(0,y0-RSD-1);x1=Math.min(AW-1,x1+RSD+1);y1=Math.min(AH-1,y1+RSD+1);
+  const w=x1-x0+1,h=y1-y0+1,n=w*h,la=new Int16Array(n),lb=new Int16Array(n);
+  for(let i=0;i<A.x.length;i++)la[(A.y[i]-y0)*w+A.x[i]-x0]=A.c[i];
+  for(let i=0;i<Bf.x.length;i++)lb[(Bf.y[i]-y0)*w+Bf.x[i]-x0]=Bf.c[i];
+  const cnt={};for(let i=0;i<n;i++){if(la[i])cnt[la[i]]=(cnt[la[i]]||0)+1;if(lb[i])cnt[lb[i]]=(cnt[lb[i]]||0)+1}
+  let base=0,bc=-1;for(const k in cnt)if(cnt[k]>bc){bc=cnt[k];base=+k}
+  const det=Object.keys(cnt).map(Number).filter(k=>k!==base);
+  const has=(lab,d)=>{for(let i=0;i<n;i++)if(lab[i]===d)return true;return false};
+  const Sa=sdf(la,w,h,0),Sb=sdf(lb,w,h,0),Da=[],Db=[];
+  for(const d of det){const ia=has(la,d),ib=has(lb,d);
+    Da.push(ia?sdf(la,w,h,d,RDET):rampField(lb,w,h,d));Db.push(ib?sdf(lb,w,h,d,RDET):rampField(la,w,h,d))}
+  const o={x:[],y:[],c:[]};
+  // Pixels at equal distances would all cross zero on the same frame. A smooth spatial lead (centre
+  // first, rim last) spreads those crossings over time; it is exactly 0 at e=0 and 1 at e=1.
+  let cx=0,cy=0,m=0;for(let i=0;i<n;i++)if(la[i]||lb[i]){cx+=i%w;cy+=(i/w)|0;m++}
+  cx/=m;cy/=m;let rmax=1;for(let i=0;i<n;i++)if(la[i]||lb[i])rmax=Math.max(rmax,Math.hypot(i%w-cx,((i/w)|0)-cy));
+  for(let i=0;i<n;i++){
+    const rn=Math.hypot(i%w-cx,((i/w)|0)-cy)/(rmax+1),el=Math.max(0,Math.min(1,e*(1+LEAD)-LEAD*rn));
+    const s=Sa[i]+(Sb[i]-Sa[i])*el;let best=-1,bv=0;
+    for(let k=0;k<det.length;k++){const v=Da[k][i]+(Db[k][i]-Da[k][i])*el;if(v<bv){bv=v;best=k}}
+    const col=best>=0?det[best]:(s<0?base:0);
+    if(col){o.x.push(x0+i%w);o.y.push(y0+((i/w)|0));o.c.push(col)}
+  }
+  return o;
+}
+function morphFeat(A,B,e){
+  const ha=A.x.length>0,hb=B.x.length>0;
+  if(!ha&&!hb)return A;
+  if(ha&&!hb)return reveal(A,1-e);
+  if(!ha&&hb)return reveal(B,e);
+  if(e<=0)return A;if(e>=1)return B;
+  if(sameFeat(A,B))return B;
+  return sdfMorph(A,B,e);
+}
+// Features overlap in time (eyes and brows lead, mouth follows, effects last) but every feature
+// still finishes by the end of the same transition, so the duration is unchanged.
+const FDELAY={eyeL:0,eyeR:0,browL:0,browR:0,mouth:.1,tag:.1,wifi:.1,drop:.15,plusL:.15,plusR:.15,spin:.15,party:.15};
+const local=(p,d)=>Math.max(0,Math.min(1,(p-d)/.85));
+function blendFace(A,B,p){const o={};for(const n of FEATS)o[n]=morphFeat(A[n],B[n],ease(local(p,FDELAY[n])));return o}
+
+// ---- the face that is wanted right now (gaze and blink are interpolated too, not stepped) ----
+function cparam(id){
+  if(id==='search')return Math.max(2,Math.min(4,3+Math.sin(T*2.4)));
+  return (id==='standby'||id==='ready'||id==='active'||id==='teacher'||id==='recovery')?gazeCur:0;
+}
+function blinkAmt(){
+  if(blinkStart<0)return 0;
+  const u=(T-blinkStart)/.16;
+  if(u>=1){blinkStart=-1;blinkNext=T+3+Math.random()*3;return 0}
+  return u<.5?ease(u*2):ease(2-2*u);
+}
+const eyeFace=(id,g,closed)=>emitFace(id,{g,closed,eyesOnly:true});
+const blendEyes=(A,B,e)=>({eyeL:morphFeat(A.eyeL,B.eyeL,e),eyeR:morphFeat(A.eyeR,B.eyeR,e)});
+function targetFace(id,c,b){
+  const lo=Math.floor(c+1e-9),fr=c-lo,base=emitFace(id,{g:lo,closed:false});
+  const needFr=fr>1e-3,needB=b>1e-3&&BLINKS.has(id);
+  if(!needFr&&!needB)return base;
+  let eo=eyeFace(id,lo,false);
+  if(needFr)eo=blendEyes(eo,eyeFace(id,lo+1,false),fr);
+  if(needB){let ec=eyeFace(id,lo,true);if(needFr)ec=blendEyes(ec,eyeFace(id,lo+1,true),fr);eo=blendEyes(eo,ec,b)}
+  base.eyeL=eo.eyeL;base.eyeR=eo.eyeR;return base;
+}
+
+// ---- painting ----
+function paintFace(F){
+  let cur=-1;
+  for(const n of FEATS){const f=F[n];for(let i=0;i<f.x.length;i++){if(f.c[i]!==cur){cur=f.c[i];a.fillStyle=CCOL[cur]}a.fillRect(f.x[i],f.y[i],1,1)}}
+}
+function drawMarks(sl){            // three strokes per cheek; left slant is interpolated, right is fixed
+  a.fillStyle=FC.k;
+  for(const [cs,s] of [[[13,16,19],sl],[[35,38,41],1]])
+    for(const cx of cs)for(let j=0;j<3;j++)a.fillRect(cx+Math.round(s*(1-j))+OX,38+j+OY,1,1);
+}
+const adv=c=>(c==='.'||c===':')?3:FONT[c][0].length+1;
+function textW(s){let w=0;for(const c of s)w+=adv(c);return w-1}
+function drawText(s,X,Y,col,g){g=g||x;g.fillStyle=col;for(const c of s){const gl=FONT[c];if(!gl)continue;for(let j=0;j<gl.length;j++)for(let i=0;i<gl[j].length;i++)if(gl[j][i]==='#')g.fillRect(X+i,Y+j,1,1);X+=adv(c)}}
+function drawIcon(n,X,Y,col){x.fillStyle=col;const bm=ICON[n];for(let j=0;j<bm.length;j++)for(let i=0;i<bm[j].length;i++)if(bm[j][i]==='#')x.fillRect(X+i,Y+j,1,1)}
+function bar(id,alpha,prog){
+  const st=ST[id];if(!st.label||alpha<=0)return;
+  const iw=st.icon==='check'?9:st.icon==='cross'?7:0;
+  let w=textW(st.label)+iw+12;if(id==='boot')w=Math.max(w,92);
+  const l=Math.round(80-w/2),y=98,h=15;
+  x.globalAlpha=alpha;
+  x.fillStyle='#0A1018';x.fillRect(l+1,y,w-2,h);x.fillRect(l,y+1,w,h-2);
+  if(id==='boot'){x.fillStyle='#4F5967';x.fillRect(l+2,y+2,Math.round((w-4)*prog),h-4)}
+  let X=l+6;
+  if(st.icon){drawIcon(st.icon,X,y+5,st.lc);X+=iw}
+  drawText(st.label,X,y+4,st.lc);
+  x.globalAlpha=1;
+}
+let lastP=1;
+function renderFace(){
+  const st=ST[state],p=Math.min(1,(T-tStart)/TR);
+  const target=targetFace(state,cparam(state),blinkAmt());
+  const shown=(p<1&&snap)?blendFace(snap,target,p):target;
+  shownFace=shown;
+  const slantTo=st.cheek==='back'?-1:1;
+  slantShown=p<1?slantFrom+(slantTo-slantFrom)*ease(local(p,.05)):slantTo;
+  a.fillStyle=BGC;a.fillRect(0,0,AW,AH);
+  a.drawImage(spr,OX,OY);
+  drawMarks(slantShown);
+  paintFace(shown);
+  const bob=idle&&Math.sin(T*2.1)>.25?1:0;
+  x.imageSmoothingEnabled=false;x.fillStyle=BGC;x.fillRect(0,0,160,128);x.drawImage(art,0,bob,160,128);
+  const prog=state==='boot'?(((T-tStart)%3.2)/3.2):1;
+  for(const k of SEQ)bar(k,ease(barA[k]),prog);
+  lastP=p;
+}
+// ======================================================================
+//  QR code encoder (byte mode, versions 1-6, error correction M). Generates real, scannable QR
+//  symbols in the browser, so no image or library has to be shipped.
+// ======================================================================
+const QR_ECC=[10,16,26,18,24,16],QR_BLK=[1,1,1,2,2,4];            // ECC level M, versions 1..6
+const qrRaw=v=>{let r=(16*v+128)*v+64;if(v>=2){const n=Math.floor(v/7)+2;r-=(25*n-10)*n-55}return r};
+function gfMul(a,b){let z=0;for(let i=7;i>=0;i--){z=(z<<1)^((z>>>7)*0x11D);z^=((b>>>i)&1)*a}return z}
+function rsDiv(d){const r=new Array(d).fill(0);r[d-1]=1;let root=1;for(let i=0;i<d;i++){for(let j=0;j<d;j++){r[j]=gfMul(r[j],root);if(j+1<d)r[j]^=r[j+1]}root=gfMul(root,2)}return r}
+function rsRem(data,div){const r=div.map(()=>0);for(const b of data){const f=b^r.shift();r.push(0);div.forEach((c,i)=>{r[i]^=gfMul(c,f)})}return r}
+function qrEncode(text,forceMask){
+  const bytes=Array.from(text,c=>c.charCodeAt(0));
+  let v=1;for(;v<=6;v++){if(12+8*bytes.length<=(Math.floor(qrRaw(v)/8)-QR_ECC[v-1]*QR_BLK[v-1])*8)break}
+  if(v>6)throw new Error('QR payload too long');
+  const nb=QR_BLK[v-1],el=QR_ECC[v-1],raw=Math.floor(qrRaw(v)/8),cap=raw-el*nb;
+  const bits=[],put=(val,n)=>{for(let i=n-1;i>=0;i--)bits.push((val>>>i)&1)};
+  put(4,4);put(bytes.length,8);bytes.forEach(b=>put(b,8));
+  put(0,Math.min(4,cap*8-bits.length));while(bits.length%8)bits.push(0);
+  for(let pad=0xEC;bits.length<cap*8;pad^=0xEC^0x11)put(pad,8);
+  const data=[];for(let i=0;i<bits.length;i+=8){let b=0;for(let j=0;j<8;j++)b=(b<<1)|bits[i+j];data.push(b)}
+  // error correction + interleave
+  const shortN=nb-raw%nb,shortLen=Math.floor(raw/nb),div=rsDiv(el),blocks=[];
+  for(let i=0,k=0;i<nb;i++){const d=data.slice(k,k+shortLen-el+(i<shortN?0:1));k+=d.length;const e=rsRem(d,div);if(i<shortN)d.push(0);blocks.push(d.concat(e))}
+  const cw=[];for(let i=0;i<blocks[0].length;i++)blocks.forEach((b,j)=>{if(i!==shortLen-el||j>=shortN)cw.push(b[i])});
+  // matrix
+  const size=v*4+17,m=Array.from({length:size},()=>new Uint8Array(size)),f=Array.from({length:size},()=>new Uint8Array(size));
+  const set=(x,y,val)=>{if(x>=0&&x<size&&y>=0&&y<size){m[y][x]=val?1:0;f[y][x]=1}};
+  for(let i=0;i<size;i++){set(6,i,i%2===0);set(i,6,i%2===0)}
+  const finder=(cx,cy)=>{for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++){const d=Math.max(Math.abs(dx),Math.abs(dy));set(cx+dx,cy+dy,d!==2&&d!==4)}};
+  finder(3,3);finder(size-4,3);finder(3,size-4);
+  const na=v===1?0:Math.floor(v/7)+2,ap=[];
+  if(na){const step=Math.ceil((v*4+4)/(na*2-2))*2;ap.push(6);for(let p=size-7;ap.length<na;p-=step)ap.splice(1,0,p)}
+  for(let i=0;i<na;i++)for(let j=0;j<na;j++){if((i===0&&j===0)||(i===0&&j===na-1)||(i===na-1&&j===0))continue;
+    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)set(ap[i]+dx,ap[j]+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1)}
+  const fmt=mk=>{let rem=mk;for(let i=0;i<10;i++)rem=(rem<<1)^((rem>>>9)*0x537);const b=((mk<<10)|rem)^0x5412,g=i=>((b>>>i)&1)===1;   // ECC M = 00
+    for(let i=0;i<=5;i++)set(8,i,g(i));set(8,7,g(6));set(8,8,g(7));set(7,8,g(8));for(let i=9;i<15;i++)set(14-i,8,g(i));
+    for(let i=0;i<8;i++)set(size-1-i,8,g(i));for(let i=8;i<15;i++)set(8,size-15+i,g(i));set(8,size-8,1)};
+  fmt(0);
+  let k=0;for(let right=size-1;right>=1;right-=2){if(right===6)right=5;
+    for(let vert=0;vert<size;vert++)for(let j=0;j<2;j++){const x=right-j,up=((right+1)&2)===0,y=up?size-1-vert:vert;
+      if(!f[y][x]&&k<cw.length*8){m[y][x]=(cw[k>>>3]>>>(7-(k&7)))&1;k++}}}
+  const MF=[(x,y)=>(x+y)%2===0,(x,y)=>y%2===0,(x,y)=>x%3===0,(x,y)=>(x+y)%3===0,(x,y)=>(((x/3)|0)+((y/2)|0))%2===0,(x,y)=>x*y%2+x*y%3===0,(x,y)=>(x*y%2+x*y%3)%2===0,(x,y)=>((x+y)%2+x*y%3)%2===0];
+  const mask=mk=>{for(let y=0;y<size;y++)for(let x=0;x<size;x++)if(!f[y][x]&&MF[mk](x,y))m[y][x]^=1};
+  const pen=()=>{let r=0,dark=0;
+    for(let y=0;y<size;y++){let run=1;for(let x=1;x<size;x++){if(m[y][x]===m[y][x-1])run++;else{if(run>=5)r+=run-2;run=1}}if(run>=5)r+=run-2}
+    for(let x=0;x<size;x++){let run=1;for(let y=1;y<size;y++){if(m[y][x]===m[y-1][x])run++;else{if(run>=5)r+=run-2;run=1}}if(run>=5)r+=run-2}
+    for(let y=0;y<size-1;y++)for(let x=0;x<size-1;x++)if(m[y][x]===m[y][x+1]&&m[y][x]===m[y+1][x]&&m[y][x]===m[y+1][x+1])r+=3;
+    // finder-like 1:1:3:1:1 runs with a light margin are penalised so scanners never mistake data for a finder
+    const A=[1,0,1,1,1,0,1,0,0,0,0],Bp=[0,0,0,0,1,0,1,1,1,0,1];
+    for(let y=0;y<size;y++)for(let x=0;x<=size-11;x++){let a=1,b=1,c=1,d=1;for(let i=0;i<11;i++){const h=m[y][x+i],w=m[x+i][y];if(h!==A[i])a=0;if(h!==Bp[i])b=0;if(w!==A[i])c=0;if(w!==Bp[i])d=0}r+=40*(a+b+c+d)}
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++)dark+=m[y][x];
+    return r+(Math.ceil(Math.abs(dark*20-size*size*10)/(size*size))-1)*10};
+  let best=0,bp=1e9;
+  if(forceMask!==undefined)best=forceMask;else for(let mk=0;mk<8;mk++){fmt(mk);mask(mk);const p=pen();mask(mk);if(p<bp){bp=p;best=mk}}
+  fmt(best);mask(best);
+  return{size,m,version:v,mask:best};
+}
+
+// ======================================================================
+//  Menu / detail / QR / power-off screens and the transitions between screens.
+//  Expression <-> QR, expression <-> menu and menu <-> QR are push transitions between two fully
+//  rendered 160x128 frames at WHOLE-PIXEL offsets, with a little parallax on the screen underneath.
+//  Nothing is blended or dithered, so nothing can grain. A transition that is interrupted starts from
+//  a snapshot of exactly what is on screen. The QR code "builds" row by row after it slides in.
+// ======================================================================
+const UI={bg:'#0B1620',hdr:'#14532D',ink:'#E6FFF3',body:'#CDEBDD',mute:'#7FB59A',ok:'#3FA796',warn:'#F2C94C',info:'#6CB6F2',acc:'#34D399',sel:'#1B6B47',card:'#F4F7F5',dark:'#0B1620'};
+const MENU=[
+ ['DEVICE STATUS','ok',['CONTROLLER ESP32 OK','WI-FI SNTCH-RM204','CLIENTS 12 OF 15','FIRMWARE 1.0.3','UPTIME 3D 4H']],
+ ['CONTROLLER QR','info',null],['ACTIVITY QR','info',null],
+ ['SESSION','ok',['STATUS LIVE','JOINED 12 OF 15','RECONNECT WINDOW 5 MIN']],
+ ['HELP REQUESTS','warn',['2 STUDENTS NEED HELP','COUNTS ONLY, NO NAMES']],
+ ['STORAGE','ok',['LITTLEFS 42% USED','MICROSD 1.2 GB FREE']],
+ ['PERIPHERAL','ok',['ARDUINO UNO LINKED','BUTTONS OK']],
+ ['RESTART','info',['RESTART CONTROLLER?','','SEL CONFIRM','BACK CANCEL']],
+ ['SHUTDOWN','info',['SAVE STATE, EJECT SD?','','SEL CONFIRM','BACK CANCEL']]];
+const QRS={
+ controller:{title:'CONTROLLER QR',payload:'SNTCH|PAIR|RM204|K7P2X9',tone:'info',who:'TEACHERS',a:'SCAN TO',b:'PAIR',code:'K7P2X9',room:'RM204',ev:'Controller connection QR for teachers, shown while pairing. Demo text, not a live token.'},
+ activity:{title:'ACTIVITY QR',payload:'SNTCH|ACT|QUIZ3|N8T4',tone:'ok',who:'STUDENTS',a:'SCAN TO',b:'JOIN',code:'N8T4',room:'QUIZ 3',ev:'Activity QR for students, shown after the ESP32 confirms the save. Demo text, not a live token.'}};
+const QRC={};
+let screen='face',xt=null,menuSel=0,detailIdx=0,qrKind='controller',qrT0=0,snapCv=null;
+const parentOf={},XT=.30,SC={face:{c:fcv,g:x}};
+const sc=id=>SC[id]||(SC[id]=(()=>{const c=document.createElement('canvas');c.width=160;c.height=128;return{c,g:c.getContext('2d')}})());
+function hdr(g,t,tone){g.fillStyle=UI.hdr;g.fillRect(0,0,160,16);g.fillStyle=UI[tone]||UI.acc;g.fillRect(6,6,4,4);drawText(t,14,5,UI.ink,g)}
+function foot(g,l,r){g.fillStyle='#07111A';g.fillRect(0,116,160,12);drawText(l,6,120,UI.mute,g);if(r)drawText(r,154-textW(r),120,UI.mute,g)}
+function renderMenu(g){
+  g.fillStyle=UI.bg;g.fillRect(0,0,160,128);hdr(g,'MENU','ok');
+  MENU.forEach((m,i)=>{const y=19+i*10,s=i===menuSel;
+    if(s){g.fillStyle=UI.sel;g.fillRect(2,y,156,10);g.fillStyle=UI.acc;g.fillRect(2,y,2,10)}
+    g.fillStyle=UI[m[1]];g.fillRect(8,y+3,4,4);drawText(m[0],16,y+1,s?UI.ink:UI.body,g)});
+  foot(g,'SEL OPEN','BACK EXIT');
+}
+function renderDetail(g){
+  const m=MENU[detailIdx];g.fillStyle=UI.bg;g.fillRect(0,0,160,128);hdr(g,m[0],m[1]);
+  m[2].forEach((l,i)=>drawText(l,8,26+i*11,i===0?UI.ink:UI.body,g));
+  foot(g,m[0]==='RESTART'||m[0]==='SHUTDOWN'?'SEL CONFIRM':'BACK MENU',m[0]==='RESTART'||m[0]==='SHUTDOWN'?'BACK CANCEL':'');
+}
+function renderOff(g){g.fillStyle='#000';g.fillRect(0,0,160,128);const s='SAFE TO POWER OFF';drawText(s,80-((textW(s)/2)|0),60,UI.mute,g)}
+function renderQR(g){
+  const q=QRS[qrKind],qr=QRC[qrKind]||(QRC[qrKind]=qrEncode(q.payload)),N=qr.size,M=3,Q=2;
+  const prog=Math.max(0,Math.min(1,(T-qrT0)/.6)),rows=prog>=1?N:Math.floor(prog*N);
+  g.fillStyle=UI.bg;g.fillRect(0,0,160,128);hdr(g,q.title,prog<1?'warn':q.tone);
+  const cx=8,cy=24,cw=N*M+Q*2*M;
+  g.fillStyle=UI.card;g.fillRect(cx,cy,cw,cw);g.fillStyle=UI.dark;
+  for(let y=0;y<rows;y++)for(let X=0;X<N;X++)if(qr.m[y][X])g.fillRect(cx+Q*M+X*M,cy+Q*M+y*M,M,M);
+  if(prog<1){g.fillStyle=UI.acc;g.fillRect(cx+2,cy+Q*M+rows*M,cw-4,1)}      // scan line while the code is being built
+  const px=104;
+  drawText(q.who,px,26,UI.acc,g);drawText(q.a,px,38,UI.body,g);drawText(q.b,px,48,UI.body,g);
+  drawText('CODE',px,66,UI.mute,g);drawText(q.code,px,76,UI.ink,g);drawText(q.room,px,90,UI.body,g);
+  drawText(prog<1?'BUILDING':'READY',px,104,prog<1?UI.warn:UI.acc,g);
+  foot(g,'DEMO CODE','BACK EXIT');
+}
+function renderScreen(id){const g=sc(id).g;if(id==='menu')renderMenu(g);else if(id==='detail')renderDetail(g);else if(id==='qr')renderQR(g);else if(id==='off')renderOff(g)}
+
+// ---- screen transitions ----
+function openScreen(id,opts,dir){
+  if(opts&&opts.kind&&id==='qr'&&screen==='qr'&&opts.kind!==qrKind){qrKind=opts.kind;qrT0=T+.1;return}
+  if(opts&&opts.kind)qrKind=opts.kind;
+  if(id===screen)return;
+  let from=screen,fromCanvas=null;
+  if(xt){                                       // interrupted: continue from exactly what is on screen now
+    if(!snapCv){snapCv=document.createElement('canvas');snapCv.width=160;snapCv.height=128}
+    snapCv.getContext('2d').drawImage(main.canvas,0,0);fromCanvas=snapCv;from='snap';
+  }
+  if(dir>0)parentOf[id]=screen;
+  if(id==='qr')qrT0=T+.12;
+  xt={from,to:id,t0:T,dir,fromCanvas};screen=id;
+}
+function present(){
+  main.imageSmoothingEnabled=false;
+  if(!xt){main.drawImage(sc(screen).c,0,0);return}
+  const p=Math.min(1,(T-xt.t0)/XT),e=.5-.5*Math.cos(Math.PI*p),W=160;
+  const A=xt.fromCanvas||sc(xt.from).c,Bc=sc(xt.to).c;
+  let under,over,ux,ox;
+  if(xt.dir>0){under=A;over=Bc;ux=-Math.round(W*.35*e);ox=Math.round(W*(1-e))}
+  else{under=Bc;over=A;ux=-Math.round(W*.35*(1-e));ox=Math.round(W*e)}
+  main.drawImage(under,ux,0);main.drawImage(over,ox,0);
+  if(ox>0&&ox<W){main.fillStyle='rgba(0,0,0,.4)';main.fillRect(Math.max(0,ox-2),0,ox-Math.max(0,ox-2),128)}   // soft edge on the leading screen
+  if(p>=1)xt=null;
+}
+function draw(){
+  const need=new Set([screen]);if(xt){need.add(xt.to);if(!xt.fromCanvas)need.add(xt.from)}
+  if(need.has('face'))renderFace();
+  for(const id of need)if(id!=='face')renderScreen(id);
+  present();ui();
+}
+function ui(){
+  const st=ST[state];let name,ev;
+  if(screen==='face'){name=(SEQ.indexOf(state)+1)+'. '+st.n;ev='Event: '+st.ev+' '+(lastP<1?'Transitioning.':'Settled.')}
+  else if(screen==='menu'){name='Device menu';ev='Select on the expression opens the menu. Back returns to the expression.'}
+  else if(screen==='detail'){name='Menu: '+MENU[detailIdx][0];ev='Back returns to the menu.'}
+  else if(screen==='qr'){name=QRS[qrKind].title;ev=QRS[qrKind].ev}
+  else{name='Powered off';ev='Safe to power off. Select or Power turns it back on.'}
+  $('now').textContent=name;
+  $('ev').textContent=ev+(xt?' Changing screen.':'')+' Demo '+(demo?'playing':'paused')+'.';
+  $('led').className='led'+(screen==='face'&&state==='attention'?' warn':screen==='face'&&state==='lost'?' bad':screen==='off'?'':'');
+  const hl=screen==='face'?state:'';
+  if(lastShown!==hl){lastShown=hl;document.querySelectorAll('[data-s]').forEach(e=>e.classList.toggle('on',e.dataset.s===hl))}
+}
+
+// ---- demo: expressions interleaved with the screens they would really accompany ----
+const DEMO=['boot','standby','search','qr:controller','ready','qr:activity','active','focused','attention','teacher','submitted','menu','completed','lost','recovery'];
+const toFace=()=>{if(screen!=='face')openScreen('face',null,-1)};
+function stopDemo(){demo=false;$('play').textContent='Play demo'}
+function demoGo(e){
+  if(e==='qr:controller')openScreen('qr',{kind:'controller'},1);
+  else if(e==='qr:activity')openScreen('qr',{kind:'activity'},1);
+  else if(e==='menu'){menuSel=0;openScreen('menu',null,1)}
+  else{toFace();go(e)}                         // the expression starts changing as it slides back into view
+}
+
+// A new expression always starts from a snapshot of what is on screen right now.
+function go(k,force){
+  if(k===state&&!force)return;
+  snap=shownFace||emitFace(state,{g:0,closed:false});
+  slantFrom=slantShown;
+  from=state;state=k;tStart=T;holdT=0;
+}
+function tick(dt){
+  T+=dt;
+  if(blinkStart<0&&T>=blinkNext)blinkStart=T;
+  if(T>=gazeNext){gazeT=[-1,0,0,1][Math.floor(Math.random()*4)];gazeNext=T+2.5+Math.random()*2.5}
+  const d=gazeT-gazeCur;gazeCur+=Math.sign(d)*Math.min(Math.abs(d),dt/.2);
+  if(demo){holdT+=dt;const cur=DEMO[di],hold=cur==='boot'?3.2:(cur==='menu'||cur.startsWith('qr:'))?3.6:2.6;
+    if(cur==='menu'){if(holdT>1.1&&menuSel<1)menuSel=1;if(holdT>2.0&&menuSel<2)menuSel=2}   // a finger walks down the list
+    if(holdT>=hold){holdT=0;di=(di+1)%DEMO.length;if(di===0)di=1;demoGo(DEMO[di])}}
+  for(const k of SEQ){const tg=(k===state&&ST[k].label)?1:0,s=dt/TR;barA[k]=tg>barA[k]?Math.min(tg,barA[k]+s):Math.max(tg,barA[k]-s)}
+  draw();
+}
+let last=0;
+function frame(now){const dt=Math.min(((now||0)-last)/1000,.25);last=now||0;tick(dt);requestAnimationFrame(frame)}
+function openItem(i){
+  const n=MENU[i][0];
+  if(n==='CONTROLLER QR')openScreen('qr',{kind:'controller'},1);
+  else if(n==='ACTIVITY QR')openScreen('qr',{kind:'activity'},1);
+  else{detailIdx=i;openScreen('detail',null,1)}
+}
+function press(k){
+  if(k==='power'){demo=true;$('play').textContent='Pause demo';di=0;toFace();go('boot',true);return}
+  if(demo&&k!=='power')stopDemo();
+  if(screen==='off'){if(k==='sel'){toFace();go('boot',true)}return}
+  if(screen==='face'){
+    if(k==='up'){di=(SEQ.indexOf(state)+SEQ.length-1)%SEQ.length;go(SEQ[di])}
+    else if(k==='down'){di=(SEQ.indexOf(state)+1)%SEQ.length;go(SEQ[di])}
+    else if(k==='sel'){menuSel=0;openScreen('menu',null,1)}
+    else if(k==='back')go('standby');
+  }else if(screen==='menu'){
+    if(k==='up')menuSel=(menuSel+MENU.length-1)%MENU.length;
+    else if(k==='down')menuSel=(menuSel+1)%MENU.length;
+    else if(k==='sel')openItem(menuSel);
+    else if(k==='back')openScreen('face',null,-1);
+  }else{
+    if(k==='back')openScreen(parentOf[screen]||'menu',null,-1);
+    else if(k==='sel'&&screen==='detail'){
+      const n=MENU[detailIdx][0];
+      if(n==='RESTART'){toFace();go('boot',true)}
+      else if(n==='SHUTDOWN')openScreen('off',null,1);
+      else openScreen('menu',null,-1);
+    }
+  }
+}
+
+function zoom(z){zoomV=z;CV.style.width=160*z+'px';CV.style.height=128*z+'px';$('cw').style.setProperty('--z',z+'px');
+  document.querySelectorAll('[data-z]').forEach(b=>b.classList.toggle('on',+b.dataset.z===z));applyGrid()}
+function applyGrid(){$('cw').classList.toggle('grid',gridOn&&zoomV>=2)}
+SEQ.forEach((k,i)=>{const b=document.createElement('button');b.textContent=SHORT[i];b.dataset.s=k;
+  b.onclick=()=>{stopDemo();toFace();go(k)};$('states').appendChild(b)});
+document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>press(b.dataset.k));
+document.querySelectorAll('[data-z]').forEach(b=>b.onclick=()=>zoom(+b.dataset.z));
+$('play').onclick=()=>{demo=!demo;holdT=0;di=Math.max(0,DEMO.indexOf(state));$('play').textContent=demo?'Pause demo':'Play demo'};
+$('qrC').onclick=()=>{stopDemo();openScreen('qr',{kind:'controller'},1)};
+$('qrA').onclick=()=>{stopDemo();openScreen('qr',{kind:'activity'},1)};
+$('menuB').onclick=()=>{stopDemo();menuSel=0;openScreen('menu',null,1)};
+$('replay').onclick=()=>press('power');
+$('blink').onclick=()=>{if(blinkStart<0)blinkStart=T};
+$('idle').onclick=()=>{idle=!idle;$('idle').textContent='Idle motion: '+(idle?'on':'off');$('idle').classList.toggle('on',idle)};
+$('gridb').onclick=()=>{gridOn=!gridOn;$('gridb').textContent='Pixel grid: '+(gridOn?'on':'off');$('gridb').classList.toggle('on',gridOn);applyGrid()};
+$('tr').oninput=e=>{TR=e.target.value/1000;$('trv').textContent=e.target.value+' ms'};
+zoom(2);
+if(typeof globalThis.__SNTCH_TEST__!=='undefined'){globalThis.__SNTCH_TEST__={tick,go,ST,SEQ,CV,setDemo(v){demo=v},state:()=>state,openScreen,press,screen:()=>screen,moving:()=>!!xt}}
+else requestAnimationFrame(frame);
+</script></body></html>

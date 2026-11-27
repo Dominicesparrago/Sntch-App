@@ -1,6 +1,6 @@
 # Testing and verification
 
-Everything below was run in this environment. Nothing here is a projection.
+Software checks and hardware acceptance are separate. The Option C physical checklist below is pending.
 
 ## 1. Suites and results
 
@@ -8,10 +8,10 @@ Everything below was run in this environment. Nothing here is a projection.
 |---|---|---|
 | Core + API (native) | `bash tools/native_build.sh` | **373 checks, 0 failures** |
 | HTTP end-to-end incl. restart | same script (or `python tools/e2e_test.py`) | **101 checks, 0 failures** |
-| Android JVM (models, transport, repositories) | `bash tools/android_build.sh` | **37 tests, 0 failures** |
-| Firmware build, ESP32-WROOM-32D | `pio run -e esp32wroom32d` | **SUCCESS**, RAM 48,200 / 327,680 B (14.7%), flash 1,384,028 / 3,145,728 B (44.0%) |
+| Android JVM (models, transport, repositories) | `cd android && ./gradlew :app:testDebugUnitTest` | **38 tests, 0 failures**, including microSD counts above 2 GiB |
+| Option C firmware build | `pio run -d firmware` with build credentials | **SUCCESS**; default target `esp32_phone_admin` |
+| Option C TFT and microSD on host | `bash tools/test_dual_panel.sh` | **PASS**; simulated card presence, first boot, write recovery, capacity reporting, and TFT QR states |
 | Uno status-link compile | `pio run -e uno --project-dir .build/uno_check` | **SUCCESS**, RAM 1,009 / 2,048 B (49.3%), flash 31,996 / 32,256 B (99.2%) |
-| WROOM LittleFS image | `pio run -e esp32wroom32d -t buildfs` | **SUCCESS**, image includes pending first-use marker |
 | WROOM TFT/button harness | `cd firmware/esp32_wroom32d_tft_buttons && pio run` | **SUCCESS**, RAM 22,388 / 327,680 B (6.8%), flash 324,036 / 1,310,720 B (24.7%) |
 | Android APK build | `./gradlew :app:assembleDebug` | **SUCCESS**, `app-debug.apk` (~9.1 MB) |
 
@@ -19,8 +19,8 @@ Everything below was run in this environment. Nothing here is a projection.
 
 - `g++` from MSYS2 needs `/c/msys64/mingw64/bin` on `PATH`; otherwise `cc1plus` exits 127 with no
   message. `tools/native_build.sh` sets this.
-- `JAVA_HOME` points at a missing `jdk-21` on this machine. Use
-  `C:/Program Files/Java/jdk-25` (the wrapper script does).
+- Android builds need a JDK and Android SDK API 36. Set `ANDROID_HOME` to your SDK path, or set
+  `sdk.dir` in `android/local.properties`.
 
 ## 2. What the native suite covers
 
@@ -84,14 +84,15 @@ restarts it against the same data directory, and continues (101 checks):
 
 ## 4. What the Android JVM suite covers
 
-`android/app/src/test/java/com/sntch/app/data` (37 tests), against a real `HttpServer` on
+`android/app/src/test/java/com/sntch/app/data` (38 tests), including a real `HttpServer` on
 127.0.0.1:
 
 - `SntchApi`: JSON parsing, bearer header, POST body, error-envelope → `ApiException`
   (code/status/message), unreadable response and unreachable host → `NetworkException`,
   `ok:false` with HTTP 200 rejected.
 - Models: teacher snapshot, items with questions, sessions/membership, submissions, null session,
-  student attempt, submission detail question lookup, missing-field tolerance, pending deletions.
+  student attempt, submission detail question lookup, missing-field tolerance, pending deletions,
+  and microSD storage totals above 2 GiB.
 - Repositories: login persists the token; 401 clears it; roster upsert payload; exam payload
   shapes (correct index, options, keys); session action paths; attendance payload; student join
   persists identity and loads state; 401 forgets the session; exam submit payload/grading;
@@ -113,28 +114,28 @@ restarts it against the same data directory, and continues (101 checks):
 | AP association and real Wi-Fi latency | no hardware | associate phones, watch `/api/health` and serial |
 | UI rendering / gestures / on-device timing | no phone or usable emulator (only a TV AVD exists, not booted) | install the APK, run §7 |
 | TLS / hostile-network security | not implemented | see security limitations in ARCHITECTURE.md |
-| Long-term flash wear | needs days of runtime | monitor `storageUsed` and failures over a term |
+| Physical SPI microSD and endurance | host tests simulate card I/O | verify actual wiring, save records, restart, and check persistence |
 | 40–50 simultaneous clients | the AP caps at 10 stations; claim avoided | run a rotation of ≤8 phones |
 
-## 6. Manual hardware checklist (ESP32-WROOM-32D)
+## 6. Manual hardware checklist (Option C)
 
-1. Read the module marking and confirm `ESP32-WROOM-32D`; check the carrier board exposes the
-   `esp32dev` USB/UART and GPIOs. Do not flash the S3 environment to this board.
-2. If this is a confirmed new device with no classroom data to keep, run
-   `pio run -e esp32wroom32d -t uploadfs` once to write the pending first-use marker. This replaces
-   the LittleFS partition. For an existing installation, skip this step.
-3. From `firmware/`, run `pio run -e esp32wroom32d -t upload`; do not use a full-chip erase.
-4. Open `pio device monitor -b 115200`. Expect boot, LittleFS mount, saved-state load, AP line,
-   HTTP listener, then `ready`; no crash loop.
+1. Verify the board’s GPIO labels and wire the TFT and external SPI microSD module using the
+   [Option C pin table](../firmware/phone_admin/README.md#wire-the-board).
+2. For a new installation, [prepare a blank FAT32 card](../firmware/phone_admin/README.md#prepare-the-card-and-flash)
+   with `/sntch/sntch_pending_init.txt`. Insert it while the controller is off.
+3. Set the private build credentials and run `pio run -d firmware -t upload` from the repository root.
+4. Open `pio device monitor -d firmware -b 115200`. Expect a microSD mount, state load, AP and HTTP
+   startup, and a connection QR/address on the TFT.
 5. Join `SNTCH-EXAM` from a phone; open `http://192.168.4.1/api/health`. Expect
    `"ok":true`, `"storageError":false`, plausible `freeHeap`.
 6. Sign in: `POST /api/teacher/login` with the configured PIN. Import two students, create and
    publish an activity, create a session, start it.
-7. Join from the student app, submit a response; confirm it appears in teacher Results.
+7. With exactly one live activity, check that the TFT shows the join code. Join from the student
+   app, submit a response, and confirm it appears in teacher Results.
 8. Run an exam for 2 minutes; pause, resume, end. Confirm timeout auto-submission if you let the
    clock run out.
-9. Remove power mid-exam and restore it. Expect the session `paused`, the exam answer draft
-   restored, and the teacher able to resume without duplicate submissions.
+9. Restart the controller with the card installed. Expect the saved response and roster to
+   persist and any previously live session to return paused. Use test records for recovery checks.
 10. Watch the 30 s diagnostics line for heap stability (no steady decline) during a 10-minute
    session.
 
@@ -167,13 +168,12 @@ restarts it against the same data directory, and continues (101 checks):
 # core + simulator + end-to-end (clears .build/e2e-data each run)
 bash tools/native_build.sh
 
-# firmware image
-cd firmware && pio run -e esp32wroom32d
-cd firmware && pio run -e esp32wroom32d -t buildfs
-cd firmware/esp32_wroom32d_tft_buttons && pio run
+# Option C firmware (set credentials first) and host panel/storage tests
+pio run -d firmware
+bash tools/test_dual_panel.sh
 
 # Android tests and APK
-bash tools/android_build.sh
+(cd android && ./gradlew :app:testDebugUnitTest :app:assembleDebug)
 ```
 
 The Uno compile in the table is a scratch check of the root `arduino-controls.ino` sketch, not a

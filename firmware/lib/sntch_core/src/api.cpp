@@ -144,8 +144,8 @@ Response Api::handle(const Request& raw) {
     root.set("activeSessions",
              Json(classroom_ ? static_cast<int>(classroom_->openSessionCount()) : 0));
     root.set("freeHeap", Json(static_cast<int>(device_.freeHeap)));
-    root.set("storageUsed", Json(static_cast<int>(device_.storageUsed)));
-    root.set("storageTotal", Json(static_cast<int>(device_.storageTotal)));
+    root.set("storageUsed", Json::makeNumber(device_.storageUsed));
+    root.set("storageTotal", Json::makeNumber(device_.storageTotal));
     root.set("storageError", Json(classroom_ ? classroom_->storageError() : true));
     return json(200, root);
   }

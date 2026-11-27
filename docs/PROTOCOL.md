@@ -55,8 +55,8 @@ Authorization: Bearer <token>
 
 ### Teacher
 
-`POST /api/teacher/login` with `{"pin":"123456"}` returns a teacher token (8 h). The PIN is
-compiled in via `SNTCH_TEACHER_PIN` (default `246810`) and is not exposed by any endpoint.
+`POST /api/teacher/login` with `{"pin":"<configured-teacher-pin>"}` returns a teacher token (8 h).
+Supply a private `SNTCH_TEACHER_PIN` of at least eight digits at firmware build time.
 Teacher tokens live in RAM only: after a controller restart the teacher signs in again (their
 data is persisted, their token is not). Wrong PIN attempts are limited to 5 per minute per IP.
 
@@ -73,8 +73,11 @@ another student's record because the endpoints carry no student id parameter.
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| GET | `/api/health` | – | `fw`, `uptimeMs`, `students`, `activeSessions`, `freeHeap`, `storageUsed` |
+| GET | `/api/health` | – | `firmware`, `uptimeMs`, `students`, `activeSessions`, `freeHeap`, `storageUsed`, `storageTotal`, `storageError` |
 | GET | `/api/session/{code}` | – | session preview: `code`, `title`, `refType`, `target`, `state`, `expiresInSec` |
+
+`storageUsed` and `storageTotal` are byte counts. In Option C they describe the mounted microSD
+and can exceed a signed 32-bit integer. The teacher snapshot uses the same counts in `device`.
 
 Session preview is what powers "check code" before joining. It never leaks the roster or
 question content.

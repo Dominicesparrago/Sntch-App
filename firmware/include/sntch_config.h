@@ -6,13 +6,14 @@
 #define SNTCH_FIRMWARE_VERSION "0.1.0"
 #endif
 
-// Access point. WPA2 needs at least 8 characters: change this before a real class.
+// Access point. Supply a private value through SNTCH_AP_PASSWORD at build time.
 #ifndef SNTCH_AP_SSID
 #define SNTCH_AP_SSID "SNTCH-EXAM"
 #endif
 #ifndef SNTCH_AP_PASSWORD
-#define SNTCH_AP_PASSWORD "sntch-1234"
+#error "Set SNTCH_AP_PASSWORD to a private WPA2 password in the build environment."
 #endif
+static_assert(sizeof(SNTCH_AP_PASSWORD) >= 9, "SNTCH_AP_PASSWORD must be at least 8 characters.");
 #ifndef SNTCH_AP_CHANNEL
 #define SNTCH_AP_CHANNEL 1
 #endif
@@ -23,10 +24,15 @@
 #define SNTCH_AP_MAX_CLIENTS 10
 #endif
 
-// Teacher sign-in PIN. Override per device; never log it.
+// Teacher sign-in PIN. Supply a private value at build time; never log it.
 #ifndef SNTCH_TEACHER_PIN
-#define SNTCH_TEACHER_PIN "246810"
+#error "Set SNTCH_TEACHER_PIN to a private PIN in the build environment."
 #endif
+static_assert(sizeof(SNTCH_TEACHER_PIN) >= 9, "SNTCH_TEACHER_PIN must be at least 8 characters.");
+constexpr bool sntchTeacherPinIsDigitsOnly(const char* pin) {
+  return *pin == '\0' || ((*pin >= '0' && *pin <= '9') && sntchTeacherPinIsDigitsOnly(pin + 1));
+}
+static_assert(sntchTeacherPinIsDigitsOnly(SNTCH_TEACHER_PIN), "SNTCH_TEACHER_PIN must use digits only.");
 
 #ifndef SNTCH_HTTP_PORT
 #define SNTCH_HTTP_PORT 80
@@ -48,6 +54,10 @@
 
 #ifndef SNTCH_AP_HOSTNAME
 #define SNTCH_AP_HOSTNAME "sntch"
+#endif
+
+#ifndef SNTCH_PHONE_ADMIN
+#define SNTCH_PHONE_ADMIN 0
 #endif
 
 // Optional read-only status link to an Arduino Uno (or any 5 V UART display

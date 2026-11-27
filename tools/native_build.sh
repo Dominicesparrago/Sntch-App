@@ -6,9 +6,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# MSYS2's cc1plus needs its DLL directory on PATH; without this g++ fails with
-# exit 127 and no diagnostic.
-export PATH="/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH"
+socket_libs=(-pthread)
+if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* ]]; then
+  export PATH="/c/msys64/mingw64/bin:/c/msys64/usr/bin:$PATH"
+  socket_libs=(-lws2_32)
+fi
 
 mkdir -p .build
 
@@ -22,7 +24,7 @@ echo
 echo "== host simulator =="
 g++ -std=c++17 -Wall -Wextra -I firmware/lib/sntch_core/include \
   tools/host_sim/main.cpp firmware/lib/sntch_core/src/*.cpp \
-  -o .build/host_sim.exe -lws2_32
+  -o .build/host_sim.exe "${socket_libs[@]}"
 
 echo
 echo "== end-to-end =="

@@ -1,0 +1,47 @@
+// Generated from hardware/config.json by tools/generate_panel.mjs.
+const SNTCH_CONFIG = {
+  "baud": 9600,
+  "debounceMs": 25,
+  "longMs": 700,
+  "restartMs": 2500,
+  "powerMs": 3000,
+  "uno": {
+    "UP": 2,
+    "DOWN": 3,
+    "MENU": 4,
+    "SELECT": 5,
+    "BACKLIGHT": 6,
+    "TFT_RESET": 8,
+    "TFT_DC": 9,
+    "TFT_CS": 10,
+    "TFT_MOSI": 11,
+    "TFT_SCK": 13,
+    "UART_RX": "A0",
+    "UART_TX": "A1"
+  },
+  "esp": {
+    "UART_RX": 16,
+    "UART_TX": 17
+  },
+  "solo": {
+    "SCK": 18,
+    "MOSI": 23,
+    "TFT_CS": 22,
+    "TFT_DC": 21,
+    "TFT_RESET": 17,
+    "UP": 25,
+    "DOWN": 26,
+    "MENU": 33,
+    "SELECT": 32,
+    "SD_MISO": 19,
+    "SD_CS": 27
+  },
+  "display": {
+    "width": 160,
+    "height": 128,
+    "driver": "ST7735",
+    "init": "INITR_BLACKTAB",
+    "rotation": 1,
+    "backlightDefault": false
+  }
+};

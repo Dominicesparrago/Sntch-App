@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 # Runs the SNTCH host simulator on port 8080 with data in .sim-data/.
-# Use it to exercise the Android app without the physical ESP32-WROOM-32D.
+# Use it to exercise the Android app without the physical Option C controller.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-export PATH="/c/msys64/mingw64/bin:$PATH"
+socket_libs=(-pthread)
+if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* ]]; then
+  export PATH="/c/msys64/mingw64/bin:$PATH"
+  socket_libs=(-lws2_32)
+fi
 
 if [ ! -x .build/host_sim.exe ]; then
   mkdir -p .build
   g++ -std=c++17 -I firmware/lib/sntch_core/include \
     tools/host_sim/main.cpp firmware/lib/sntch_core/src/*.cpp \
-    -o .build/host_sim.exe -lws2_32
+    -o .build/host_sim.exe "${socket_libs[@]}"
 fi
 
 PORT="${1:-8080}"

@@ -55,8 +55,8 @@ struct DeviceInfo {
   std::string ip;
   std::string firmware;
   size_t freeHeap;
-  size_t storageUsed;
-  size_t storageTotal;
+  uint64_t storageUsed;
+  uint64_t storageTotal;
 };
 
 struct Student {
@@ -180,6 +180,7 @@ class Classroom {
   // ---- teacher -------------------------------------------------------------
   Result login(const std::string& pin, Ms now, std::string& token, Ms& expiresMs);
   Result authorizeTeacher(const std::string& token, Ms now) const;
+  bool hasTeacherLogin(Ms now) const;
   Result addStudents(const Json& body, int& added, int& updated);
   Result createActivity(const Json& body, unsigned& id);
   Result createExam(const Json& body, unsigned& id);
@@ -187,6 +188,9 @@ class Classroom {
   Result completeItem(const std::string& kind, unsigned id, Ms now);
   Result createSession(const Json& body, Ms now, unsigned& id);
   Result sessionAction(unsigned id, const std::string& action, Ms now);
+  // Local, physical UI authority: only an unambiguous live activity can be
+  // advertised or re-keyed. Existing authenticated student sessions survive.
+  Result liveActivityQr(Ms now, bool rotate, unsigned& id, std::string& code, unsigned& joined);
   Result requestDeletion(unsigned id, Ms now, Json& out);
   Result acknowledgeDeletion(unsigned id, Ms now, Json& out);
   Result cancelDeletion(unsigned id, Ms now, Json& out);

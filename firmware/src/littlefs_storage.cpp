@@ -105,7 +105,7 @@ std::vector<std::string> LittleFsStorage::list(const std::string& dir) {
   return out;
 }
 
-size_t LittleFsStorage::usedBytes() { return LittleFS.usedBytes(); }
-size_t LittleFsStorage::totalBytes() { return LittleFS.totalBytes(); }
+uint64_t LittleFsStorage::usedBytes() { return LittleFS.usedBytes(); }
+uint64_t LittleFsStorage::totalBytes() { return LittleFS.totalBytes(); }
 
 }  // namespace sntch_fw
